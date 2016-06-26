@@ -1,114 +1,244 @@
 #!/usr/bin/env python3
 
-# Source
+# Original Source
 # https://www.kaggle.com/xmarvin/facebook-v-predicting-check-ins/python-starter-0-55/code
-
+# Substantial modifications by Ravi Shekhar < ravi dot shekhar at gmail
+# dot com >
 
 import pandas as pd
 import numpy as np
 import datetime
 import time
 import os
-from sklearn.ensemble import GradientBoostingClassifier
+import sys
+import itertools
+#from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.ensemble import RandomForestClassifier
-import xgboost as xgb
+#import xgboost as xgb
 
-train = pd.read_csv('../input/train.csv')
-test = pd.read_csv('../input/test.csv')
-start_time = time.time()
 
-size = 10.0;
+def map_k_precision(truthvalues, predictions):
+    '''
+    This is a faster implementation of MAP@k valid for numpy arrays.
+    It is only valid when there is one single truth value.
 
-x_step = 0.2
-y_step = 0.2
+    m ~ number of observations
+    k ~ MAP at k -- in this case k should equal 3
 
-x_ranges = zip(np.arange(0, size, x_step), np.arange(x_step, size + x_step, x_step));
-y_ranges = zip(np.arange(0, size, y_step), np.arange(y_step, size + y_step, y_step));
-#print x_ranges
-#print y_ranges
+    truthvalues.shape = (m,)
+    predictions.shape = (m, k)
+    '''
+    z = (predictions == truthvalues[:, None]).astype(np.float32)
+    weights = 1./(np.arange(predictions.shape[1], dtype=np.float32) + 1.)
+    z = z * weights[None, :]
+    return float(np.mean(np.sum(z, axis=1)))
 
-print('Calculate hour, weekday, month and year for train and test')
-train['hour'] = (train['time']//60)%24+1 # 1 to 24
-train['weekday'] = (train['time']//1440)%7+1
-train['month'] = (train['time']//43200)%12+1 # rough estimate, month = 30 days
-train['year'] = (train['time']//525600)+1 
 
-test['hour'] = (test['time']//60)%24+1 # 1 to 24
-test['weekday'] = (test['time']//1440)%7+1
-test['month'] = (test['time']//43200)%12+1 # rough estimate, month = 30 days
-test['year'] = (test['time']//525600)+1
+def main():
 
-#print 'shape after time engineering'
-#print train.shape
-#print test.shape
+    train = pd.read_csv('../input/train.csv')
+    test = pd.read_csv('../input/test.csv')
+    start_time = time.time()
 
-X_train = train[['x','y','accuracy','time', 'hour', 'weekday', 'month', 'year']];
-y_train = train[['place_id']];
-X_test = test[['x','y','accuracy','time', 'hour', 'weekday', 'month', 'year']];
-X_test_labels = test[['row_id']];
+    size = 10.0
 
-preds_total = pd.DataFrame();
-for x_min, x_max in  x_ranges:
-    start_time_row = time.time()
-    for y_min, y_max in  y_ranges: 
+    x_step = 0.2
+    y_step = 0.2
+    margin = 0.02
+
+    x_ranges = zip(np.arange(0, size, x_step),
+                   np.arange(x_step, size + x_step, x_step))
+    y_ranges = zip(np.arange(0, size, y_step),
+                   np.arange(y_step, size + y_step, y_step))
+
+    print('Calculate hour, weekday, month and year for train and test')
+    minute = train['time'] % 60
+    train['hour'] = train['time']//60
+    train['weekday'] = train['hour']//24
+    train['month'] = train['weekday']//30
+    train['year'] = (train['weekday']//365+1)
+    train['hour'] = ((train['hour'] % 24+1)+minute/60.0)
+    train['weekday'] = (train['weekday'] % 7+1)
+    train['month'] = (train['month'] % 12+1)
+    train['log10acc'] = np.log10(train['accuracy'].values)
+
+    minute = train['time'] % 60
+    test['hour'] = test['time']//60
+    test['weekday'] = test['hour']//24
+    test['month'] = test['weekday']//30
+    test['year'] = (test['weekday']//365+1)
+    test['hour'] = ((test['hour'] % 24+1)+minute/60.0)
+    test['weekday'] = (test['weekday'] % 7+1)
+    test['month'] = (test['month'] % 12+1)
+    test['log10acc'] = np.log10(test['accuracy'].values)
+
+    # We're doing two separate things in this script.
+    # 1. Fitting on the entire training set and predicting the test set
+    # 2. Fitting on the first 90% of the training set (I call this the trainfold),
+    #    and predicting the last 10% of the training set (I call this the
+    #    validationfold). This will be later used for model stacking.
+
+    # All splitting is done in the time dimension to simulate future predictions
+    # the same as the train/test split in the competition.
+    train.sort_values('time', inplace=True)
+
+    # For the training on the full data
+    X_train_total = train[
+        'row_id x y accuracy time hour weekday month year log10acc place_id'
+        .split()]
+    y_train_total = train.place_id.values
+
+    # For the training on the trainfold and predictions of the validationfold.
+    # First 90% as training fold
+    X_train_trainfold = train[:int(0.9*train.shape[0])]
+    X_train_valifold = train[int(0.9*train.shape[0]):]
+
+    X_test = test[
+        'row_id x y accuracy time hour weekday month year log10acc'.split()]
+
+    preds_test = []
+    preds_vali = []
+
+    starttime = str(datetime.datetime.now().strftime("%Y-%m-%d-%H-%M"))
+    i = 0
+
+    for xlims, ylims in itertools.product(x_ranges, y_ranges):
+        x_min, x_max = ylims
+        y_min, y_max = ylims
+
         start_time_cell = time.time()
         x_max = round(x_max, 4)
         x_min = round(x_min, 4)
-        
+
         y_max = round(y_max, 4)
         y_min = round(y_min, 4)
-        
+
         if x_max == size:
             x_max = x_max + 0.001
-            
+
         if y_max == size:
             y_max = y_max + 0.001
-            
-        train_grid = train[(train['x'] >= x_min) &
-                           (train['x'] < x_max) &
-                           (train['y'] >= y_min) &
-                           (train['y'] < y_max)]
 
-        test_grid = test[(test['x'] >= x_min) &
-                         (test['x'] < x_max) &
-                         (test['y'] >= y_min) &
-                         (test['y'] < y_max)]
-        
-        X_train_grid = train_grid[['x','y','accuracy', 'hour', 'weekday', 'month', 'year']];
-        y_train_grid = train_grid[['place_id']].values.ravel();
-        X_test_grid = test_grid[['x','y','accuracy','hour', 'weekday', 'month', 'year']];
-        
-        # L1reg = 0.2
-        # L2reg = 0.5
+        # -------------
+        X_train_total_cell = X_train_total[
+            (X_train_total['x'] >= x_min - margin) &
+            (X_train_total['x'] < x_max + margin) &
+            (X_train_total['y'] >= y_min - margin) &
+            (X_train_total['y'] < y_max + margin)]
+        Y_train_total_cell = X_train_total_cell.place_id.values
 
-        #clf = GradientBoostingClassifier();
-        #clf =  LogisticRegression(multi_class='multinomial', solver = 'lbfgs');
-#        clf = xgb.XGBClassifier(n_estimators=100, max_depth=10, learning_rate=0.15,
-#                                subsample=0.8, colsample_bytree=0.8, colsample_bylevel=0.8,
-#                                reg_lambda=L2reg, reg_alpha=L1reg, seed=7, nthread=16,
-#                                objective='multi:softprob'
-#                                );
-        clf = RandomForestClassifier(n_estimators = 300, n_jobs = -1,random_state=0);
+        # -------------
+        X_trainfold_cell = X_train_trainfold[
+            (X_train_trainfold['x'] >= x_min - margin) &
+            (X_train_trainfold['x'] < x_max + margin) &
+            (X_train_trainfold['y'] >= y_min - margin) &
+            (X_train_trainfold['y'] < y_max + margin)]
+        Y_trainfold_cell = X_trainfold_cell.place_id.values
 
-        
+        # -------------
+        X_valifold_cell = X_train_valifold[
+            (X_train_valifold['x'] >= x_min) &
+            (X_train_valifold['x'] < x_max) &
+            (X_train_valifold['y'] >= y_min) &
+            (X_train_valifold['y'] < y_max)]
+        Y_valifold_cell = X_valifold_cell.place_id.values
 
-        clf.fit(X_train_grid, y_train_grid)
-        
+        # -------------
+        X_test_cell = X_test[
+            (X_test['x'] >= x_min) &
+            (X_test['x'] < x_max) &
+            (X_test['y'] >= y_min) &
+            (X_test['y'] < y_max)]
 
-        preds = dict(zip([el for el in clf.classes_], zip(*clf.predict_proba(X_test_grid))))
-        preds = pd.DataFrame.from_dict(preds)
-        
-        preds['0_'], preds['1_'], preds['2_'] = zip(*preds.apply(lambda x: preds.columns[x.argsort()[::-1][:3]].tolist(), axis=1));
-        preds = preds[['0_','1_','2_']];
-        preds['row_id'] = test_grid['row_id'].reset_index(drop=True);
-        preds_total = pd.concat([preds_total, preds], axis=0);
-        print("Elapsed time cell: %s seconds" % (time.time() - start_time_cell))
-    print("Elapsed time row: %s seconds" % (time.time() - start_time_row))
+        # Obviously this field doesn't exist :)
+        # Y_test_cell = X_test_cell.place_id.values
 
-preds_total['place_id'] = preds_total[['0_', '1_', '2_']].apply(lambda x: ','.join([str(x1) for x1 in x]), axis=1)
-preds_total.drop('0_', axis=1, inplace=True)
-preds_total.drop('1_', axis=1, inplace=True)
-preds_total.drop('2_', axis=1, inplace=True)
-sub_file = os.path.join('rf_submission_' + str(datetime.datetime.now().strftime("%Y-%m-%d-%H-%M")) + '.csv')
-preds_total.to_csv(sub_file,index=False)
-print("Elapsed time overall: %s seconds" % (time.time() - start_time))
+        # -------------
+
+        X_train_total_cell = X_train_total_cell[
+            'x y accuracy log10acc hour weekday month year'.split()]
+        X_trainfold_cell = X_trainfold_cell[
+            'x y accuracy log10acc hour weekday month year'.split()]
+        valifold_row_ids = X_valifold_cell.row_id.values
+        X_valifold_cell = X_valifold_cell[
+            'x y accuracy log10acc hour weekday month year'.split()]
+        test_row_ids = X_test_cell.row_id.values
+        X_test_cell = X_test_cell[
+            'x y accuracy log10acc hour weekday month year'.split()]
+
+        # -------------
+
+        clf_total = RandomForestClassifier(n_estimators=300, n_jobs=-1,
+                                           random_state=0)
+        clf_total.fit(X_train_total_cell.values, Y_train_total_cell)
+        Y_pred_test_cell = clf_total.predict_proba(X_test_cell.values)
+        classes_total = clf_total.classes_
+
+        # this is very memory intensive, so I'm going to delete it for the GC
+        del clf_total 
+        # -------------
+
+        clf_trainfold = RandomForestClassifier(n_estimators=300, n_jobs=-1,
+                                               random_state=0)
+        clf_trainfold.fit(X_trainfold_cell.values, Y_trainfold_cell)
+        Y_pred_valifold_cell = clf_trainfold.predict_proba(
+            X_valifold_cell.values)
+        classes_trainfold = clf_trainfold.classes_
+
+        # this is very memory intensive, so I'm going to delete it for the GC
+        del clf_trainfold
+
+        # -------------
+        Y_pred_test_cell = (np.argsort(Y_pred_test_cell, axis=1)
+                            [:, ::-1][:, :3])
+        Y_pred_valifold_cell = (np.argsort(Y_pred_valifold_cell, axis=1)
+                                [:, ::-1][:, :3])
+
+        test_predicted_placeids = classes_total.take(Y_pred_test_cell)
+        valifold_predicted_placeids = classes_trainfold.take(
+            Y_pred_valifold_cell)
+
+        # print(test_row_ids)
+        # print(test_predicted_placeids)
+
+        # print(valifold_row_ids)
+        # print(valifold_predicted_placeids)
+
+        map3 = map_k_precision(Y_valifold_cell, valifold_predicted_placeids)
+
+        N_test = test_row_ids.shape[0]
+        N_vali = valifold_predicted_placeids.shape[0]
+
+        preds_test.append(pd.DataFrame({'row_id': test_row_ids,
+                      'pred1': test_predicted_placeids[:, 0],
+                      'pred2': test_predicted_placeids[:, 1],
+                      'pred3': test_predicted_placeids[:, 2],
+                      'map3' : np.ones(N_test, dtype=np.float32)*map3
+                      }))
+        preds_vali.append(pd.DataFrame({'row_id': valifold_row_ids,
+                      'pred1': valifold_predicted_placeids[:, 0],
+                      'pred2': valifold_predicted_placeids[:, 1],
+                      'pred3': valifold_predicted_placeids[:, 2],
+                      'map3' : np.ones(N_vali, dtype=np.float32)*map3
+                      }))
+
+        print("X: [{:.4f},{:.4f}) Y: [{:.4f},{:.4f}) MAP3: {:.4f}"
+            .format(x_min, x_max, y_min, y_max, map3))
+
+        if i % 100 == 0:
+            print("Updating random_forest_test_{}.csv".format(starttime))
+            pd.concat(preds_test).to_csv(
+                'random_forest_test_{}.csv'.format(starttime), index=False)
+            pd.concat(preds_vali).to_csv(
+                'random_forest_vali_{}.csv'.format(starttime), index=False)
+
+        i += 1
+    print("Writing out final random_forest_test_{}.csv".format(starttime))
+    preds_test.to_csv('random_forest_test_{}.csv.gz'.format(starttime), 
+        compression='gzip')
+    preds_vali.to_csv('random_forest_vali_{}.csv.gz'.format(starttime), 
+        compression='gzip')
+    print("All done")
+
+if __name__ == '__main__':
+    main()
