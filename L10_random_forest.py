@@ -42,9 +42,9 @@ def main():
 
     size = 10.0
 
-    x_step = 0.2
-    y_step = 0.2
-    margin = 0.02
+    x_step = size/75.
+    y_step = size/150.
+    margin = 0.015
 
     x_ranges = zip(np.arange(0, size, x_step),
                    np.arange(x_step, size + x_step, x_step))
@@ -168,7 +168,7 @@ def main():
 
         # -------------
 
-        clf_total = RandomForestClassifier(n_estimators=300, n_jobs=-1,
+        clf_total = RandomForestClassifier(n_estimators=150, n_jobs=-1,
                                            random_state=0)
         clf_total.fit(X_train_total_cell.values, Y_train_total_cell)
         Y_pred_test_cell = clf_total.predict_proba(X_test_cell.values)
@@ -178,7 +178,7 @@ def main():
         del clf_total 
         # -------------
 
-        clf_trainfold = RandomForestClassifier(n_estimators=300, n_jobs=-1,
+        clf_trainfold = RandomForestClassifier(n_estimators=150, n_jobs=-1,
                                                random_state=0)
         clf_trainfold.fit(X_trainfold_cell.values, Y_trainfold_cell)
         Y_pred_valifold_cell = clf_trainfold.predict_proba(
