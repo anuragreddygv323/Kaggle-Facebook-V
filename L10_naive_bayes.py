@@ -13,7 +13,7 @@ import os
 import sys
 import itertools
 #from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import GaussianNB
 #import xgboost as xgb
 
 
@@ -176,8 +176,7 @@ def main():
 
         # -------------
 
-        clf_total = RandomForestClassifier(n_estimators=150, n_jobs=-1,
-                                           random_state=0)
+        clf_total = GaussianNB()
         clf_total.fit(X_train_total_cell.values, Y_train_total_cell)
         Y_pred_test_cell = clf_total.predict_proba(X_test_cell.values)
         classes_total = clf_total.classes_
@@ -186,8 +185,7 @@ def main():
         del clf_total 
         # -------------
 
-        clf_trainfold = RandomForestClassifier(n_estimators=150, n_jobs=-1,
-                                               random_state=0)
+        clf_trainfold = GaussianNB()
         clf_trainfold.fit(X_trainfold_cell.values, Y_trainfold_cell)
         Y_pred_valifold_cell = clf_trainfold.predict_proba(
             X_valifold_cell.values)
@@ -234,17 +232,17 @@ def main():
             .format(x_min, x_max, y_min, y_max, map3))
 
         if i % 100 == 0:
-            print("Updating random_forest_test_{}.csv".format(starttime))
+            print("Updating naive_bayes_test_{}.csv".format(starttime))
             pd.concat(preds_test).to_csv(
-                'random_forest_test_{}.csv'.format(starttime), index=False)
+                'naive_bayes_test_{}.csv'.format(starttime), index=False)
             pd.concat(preds_vali).to_csv(
-                'random_forest_vali_{}.csv'.format(starttime), index=False)
+                'naive_bayes_vali_{}.csv'.format(starttime), index=False)
 
         i += 1
-    print("Writing out final random_forest_test_{}.csv".format(starttime))
-    preds_test.to_csv('random_forest_test_{}.csv.gz'.format(starttime), 
+    print("Writing out final naive_bayes_test_{}.csv".format(starttime))
+    preds_test.to_csv('naive_bayes_test_{}.csv.gz'.format(starttime), 
         compression='gzip')
-    preds_vali.to_csv('random_forest_vali_{}.csv.gz'.format(starttime), 
+    preds_vali.to_csv('naive_bayes_vali_{}.csv.gz'.format(starttime), 
         compression='gzip')
     print("All done")
 

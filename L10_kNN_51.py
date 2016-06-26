@@ -13,9 +13,22 @@ import os
 import sys
 import itertools
 #from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
 #import xgboost as xgb
 
+# this set of parameters was obtained with `L01_kNN_bayes.py --bayes`
+#  with NEIGH=51 set in environment
+knn_opt_params = {
+    'th': 0.5075,
+    'w_x': 427.3435,
+    'w_y': 1000.,
+    'w_hour': 4.2810,
+    'w_log10acc': 19.1242,
+    'w_weekday': 2.9390,
+    'w_month': 3.6378,
+    'w_year': 7.3394,
+    'n_neighbors': 51,
+}
 
 def map_k_precision(truthvalues, predictions):
     '''
@@ -44,7 +57,7 @@ def main():
 
     x_step = size/100.
     y_step = size/100.
-    margin = 0.015
+    margin = 0.05
 
     x_ranges = zip(np.arange(0, size, x_step),
                    np.arange(x_step, size + x_step, x_step))
@@ -54,23 +67,23 @@ def main():
     print('Calculate hour, weekday, month and year for train and test')
     minute = train['time'] % 60
     train['hour'] = train['time']//60
-    train['weekday'] = train['hour']//24
-    train['month'] = train['weekday']//30
-    train['year'] = (train['weekday']//365+1)
-    train['hour'] = ((train['hour'] % 24+1)+minute/60.0)
-    train['weekday'] = (train['weekday'] % 7+1)
-    train['month'] = (train['month'] % 12+1)
-    train['log10acc'] = np.log10(train['accuracy'].values)
+    train['weekday'] = train['hour']//24 
+    train['month'] = train['weekday']//30 
+    train['year'] = (train['weekday']//365+1) * knn_opt_params['w_year']
+    train['hour'] = ((train['hour'] % 24+1)+minute/60.0)* knn_opt_params['w_hour']
+    train['weekday'] = (train['weekday'] % 7+1) * knn_opt_params['w_weekday']
+    train['month'] = (train['month'] % 12+1) * knn_opt_params['w_month']
+    train['log10acc'] = np.log10(train['accuracy'].values) * knn_opt_params['w_log10acc']
 
     minute = train['time'] % 60
     test['hour'] = test['time']//60
     test['weekday'] = test['hour']//24
     test['month'] = test['weekday']//30
-    test['year'] = (test['weekday']//365+1)
-    test['hour'] = ((test['hour'] % 24+1)+minute/60.0)
-    test['weekday'] = (test['weekday'] % 7+1)
-    test['month'] = (test['month'] % 12+1)
-    test['log10acc'] = np.log10(test['accuracy'].values)
+    test['year'] = (test['weekday']//365+1) * knn_opt_params['w_year']
+    test['hour'] = ((test['hour'] % 24+1)+minute/60.0)* knn_opt_params['w_hour']
+    test['weekday'] = (test['weekday'] % 7+1) * knn_opt_params['w_weekday']
+    test['month'] = (test['month'] % 12+1) * knn_opt_params['w_month']
+    test['log10acc'] = np.log10(test['accuracy'].values) * knn_opt_params['w_log10acc']
 
     # We're doing two separate things in this script.
     # 1. Fitting on the entire training set and predicting the test set
@@ -124,7 +137,10 @@ def main():
             (X_train_total['x'] >= x_min - margin) &
             (X_train_total['x'] < x_max + margin) &
             (X_train_total['y'] >= y_min - margin) &
-            (X_train_total['y'] < y_max + margin)]
+            (X_train_total['y'] < y_max + margin)].copy()
+
+        X_train_total_cell['x'] *= knn_opt_params['w_x']
+        X_train_total_cell['y'] *= knn_opt_params['w_y']
 
         place_counts = X_train_total_cell.place_id.value_counts()
         mask = (place_counts[X_train_total_cell.place_id.values] >= 4).values
@@ -136,7 +152,10 @@ def main():
             (X_train_trainfold['x'] >= x_min - margin) &
             (X_train_trainfold['x'] < x_max + margin) &
             (X_train_trainfold['y'] >= y_min - margin) &
-            (X_train_trainfold['y'] < y_max + margin)]
+            (X_train_trainfold['y'] < y_max + margin)].copy()
+
+        X_trainfold_cell['x'] *= knn_opt_params['w_x']
+        X_trainfold_cell['y'] *= knn_opt_params['w_y']
 
         place_counts = X_trainfold_cell.place_id.value_counts()
         mask = (place_counts[X_trainfold_cell.place_id.values] >= 4).values
@@ -148,15 +167,21 @@ def main():
             (X_train_valifold['x'] >= x_min) &
             (X_train_valifold['x'] < x_max) &
             (X_train_valifold['y'] >= y_min) &
-            (X_train_valifold['y'] < y_max)]
+            (X_train_valifold['y'] < y_max)].copy()
         Y_valifold_cell = X_valifold_cell.place_id.values
+
+        X_valifold_cell['x'] *= knn_opt_params['w_x']
+        X_valifold_cell['y'] *= knn_opt_params['w_y']
 
         # -------------
         X_test_cell = X_test[
             (X_test['x'] >= x_min) &
             (X_test['x'] < x_max) &
             (X_test['y'] >= y_min) &
-            (X_test['y'] < y_max)]
+            (X_test['y'] < y_max)].copy()
+
+        X_test_cell['x'] *= knn_opt_params['w_x']
+        X_test_cell['y'] *= knn_opt_params['w_y']
 
         # Obviously this field doesn't exist :)
         # Y_test_cell = X_test_cell.place_id.values
@@ -164,20 +189,19 @@ def main():
         # -------------
 
         X_train_total_cell = X_train_total_cell[
-            'x y accuracy log10acc hour weekday month year'.split()]
+            'x y log10acc hour weekday month year'.split()]
         X_trainfold_cell = X_trainfold_cell[
-            'x y accuracy log10acc hour weekday month year'.split()]
+            'x y log10acc hour weekday month year'.split()]
         valifold_row_ids = X_valifold_cell.row_id.values
         X_valifold_cell = X_valifold_cell[
-            'x y accuracy log10acc hour weekday month year'.split()]
+            'x y log10acc hour weekday month year'.split()]
         test_row_ids = X_test_cell.row_id.values
         X_test_cell = X_test_cell[
-            'x y accuracy log10acc hour weekday month year'.split()]
+            'x y log10acc hour weekday month year'.split()]
 
         # -------------
 
-        clf_total = RandomForestClassifier(n_estimators=150, n_jobs=-1,
-                                           random_state=0)
+        clf_total = KNeighborsClassifier(n_neighbors=1, metric='manhattan')
         clf_total.fit(X_train_total_cell.values, Y_train_total_cell)
         Y_pred_test_cell = clf_total.predict_proba(X_test_cell.values)
         classes_total = clf_total.classes_
@@ -186,8 +210,7 @@ def main():
         del clf_total 
         # -------------
 
-        clf_trainfold = RandomForestClassifier(n_estimators=150, n_jobs=-1,
-                                               random_state=0)
+        clf_trainfold = KNeighborsClassifier(n_neighbors=1, metric='manhattan')
         clf_trainfold.fit(X_trainfold_cell.values, Y_trainfold_cell)
         Y_pred_valifold_cell = clf_trainfold.predict_proba(
             X_valifold_cell.values)
@@ -234,17 +257,17 @@ def main():
             .format(x_min, x_max, y_min, y_max, map3))
 
         if i % 100 == 0:
-            print("Updating random_forest_test_{}.csv".format(starttime))
+            print("Updating knn_51_test_{}.csv".format(starttime))
             pd.concat(preds_test).to_csv(
-                'random_forest_test_{}.csv'.format(starttime), index=False)
+                'knn_51_test_{}.csv'.format(starttime), index=False)
             pd.concat(preds_vali).to_csv(
-                'random_forest_vali_{}.csv'.format(starttime), index=False)
+                'knn_51_vali_{}.csv'.format(starttime), index=False)
 
         i += 1
-    print("Writing out final random_forest_test_{}.csv".format(starttime))
-    preds_test.to_csv('random_forest_test_{}.csv.gz'.format(starttime), 
+    print("Writing out final knn_51_test_{}.csv".format(starttime))
+    preds_test.to_csv('knn_51_test_{}.csv.gz'.format(starttime), 
         compression='gzip')
-    preds_vali.to_csv('random_forest_vali_{}.csv.gz'.format(starttime), 
+    preds_vali.to_csv('knn_51_vali_{}.csv.gz'.format(starttime), 
         compression='gzip')
     print("All done")
 
