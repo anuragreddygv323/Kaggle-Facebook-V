@@ -176,8 +176,8 @@ def main():
 
         # -------------
 
-        clf_total = GradientBoostingClassifier(n_estimators=100, 
-                                           random_state=0)
+        clf_total = GradientBoostingClassifier(n_estimators=10, 
+                                           random_state=2)
         clf_total.fit(X_train_total_cell.values, Y_train_total_cell)
         Y_pred_test_cell = clf_total.predict_proba(X_test_cell.values)
         classes_total = clf_total.classes_
@@ -186,8 +186,8 @@ def main():
         del clf_total 
         # -------------
 
-        clf_trainfold = GradientBoostingClassifier(n_estimators=100, 
-                                               random_state=0)
+        clf_trainfold = GradientBoostingClassifier(n_estimators=10, 
+                                               random_state=2)
         clf_trainfold.fit(X_trainfold_cell.values, Y_trainfold_cell)
         Y_pred_valifold_cell = clf_trainfold.predict_proba(
             X_valifold_cell.values)
@@ -242,10 +242,8 @@ def main():
 
         i += 1
     print("Writing out final gradient_boost_test_{}.csv".format(starttime))
-    preds_test.to_csv('gradient_boost_test_{}.csv.gz'.format(starttime), 
-        compression='gzip')
-    preds_vali.to_csv('gradient_boost_vali_{}.csv.gz'.format(starttime), 
-        compression='gzip')
+    pd.concat(preds_test).to_csv('gradient_boost_test_{}.csv'.format(starttime), index=False)
+    pd.concat(preds_vali).to_csv('gradient_boost_vali_{}.csv'.format(starttime), index=False)
     print("All done")
 
 if __name__ == '__main__':

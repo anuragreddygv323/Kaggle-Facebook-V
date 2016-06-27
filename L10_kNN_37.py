@@ -265,10 +265,10 @@ def main():
 
         i += 1
     print("Writing out final knn_37_test_{}.csv".format(starttime))
-    preds_test.to_csv('knn_37_test_{}.csv.gz'.format(starttime), 
-        compression='gzip')
-    preds_vali.to_csv('knn_37_vali_{}.csv.gz'.format(starttime), 
-        compression='gzip')
+    pd.concat(preds_test).to_csv('knn_37_test_{}.csv'.format(starttime),
+                                 index=False)
+    pd.concat(preds_vali).to_csv('knn_37_vali_{}.csv'.format(starttime),
+                                 index=False)
     print("All done")
 
 if __name__ == '__main__':
