@@ -2,7 +2,6 @@
 # coding: utf-8
 
 from bayes_opt import BayesianOptimization
-from lru import LRU
 from matplotlib import pyplot as plt
 
 import argparse
@@ -21,11 +20,6 @@ import sys
 import time
 import xgboost
 
-# This is a relic from an earlier version of the script where I was using the
-# threading module to parallelize. This would save data with kNN features
-# between threads and multiple calls of the Bayesian Optimizer.
-data_cache = LRU(2)
-
 # This is from Run A3 in my notebook.
 # With last 10% in time as validation set,
 # this produces a nearest neighbor MAP3
@@ -34,7 +28,8 @@ data_cache = LRU(2)
 #
 # check knn_bayes_4.log
 knn_opt_params_0 = {
-    'th': 5.4848,
+    #'th': 5.4848,
+    'th': 3., # modified the original (above line) to be smaller
     'w_x': 487.2522,
     'w_y': 1001.9209,
     'w_hour': 3.6170,
@@ -46,10 +41,11 @@ knn_opt_params_0 = {
 }
 
 # Loosely based on default XGBoost params
+# with a lower learning rate.
 xgboost_params_0 = {
     'cut_threshold': 1,
     'n_estimators': 100,
-    'learning_rate': 0.3,
+    'learning_rate': 0.1,
     'gamma': 0.0,
     'subsample': 1.0,
     'colsample_bytree': 1.0,
@@ -198,7 +194,8 @@ def add_knn_features(df_train, df_test, knn_params):
 
     nn_ = sklearn.neighbors.NearestNeighbors(metric='manhattan')
 
-    nn_.fit(weighted_df_train.as_matrix())
+    nn_.fit(weighted_df_train[
+        'x y hour weekday month year log10acc'.split()].values)
     dists_train, indices_train = nn_.kneighbors(
         weighted_df_train[
             'x y hour weekday month year log10acc'.split()].values,
@@ -287,6 +284,9 @@ def add_knn_features(df_train, df_test, knn_params):
 
 def xgboost_predict(train, test, xgboost_params={}, map_at_k_K=3):
 
+    par = copy.deepcopy(xgboost_params)
+    del par['cut_threshold']
+
     y_train = train.place_id.values
     x_train = train.drop('place_id', axis=1).values
 
@@ -297,7 +297,7 @@ def xgboost_predict(train, test, xgboost_params={}, map_at_k_K=3):
 
     clf = xgboost.XGBClassifier(objective='multi:softprob', seed=42,
                                 nthread=-1,
-                                **xgboost_params)
+                                **par)
     clf.fit(x_train, y_train)
     predict_y_test = clf.predict_proba(x_test)
 
@@ -317,63 +317,73 @@ def process_one_cell(df_train, df_test, trainfold, valifold,
     if y_max == size:
         y_max += 1.0e-5
 
-    # if (x_min, x_max, y_min, y_max, cut_threshold) in data_cache.keys():
-    #     train_in_cell, test_in_cell = data_cache[(x_min, x_max, y_min, y_max, cut_threshold)]
-    # else:
-    #     train_in_cell = df_train[(df_train.x >= x_min - x_cell_margin) &
-    #                              (df_train.x < x_max + x_cell_margin) &
-    #                              (df_train.y >= y_min - y_cell_margin) &
-    #                              (df_train.y < y_max + y_cell_margin)
-    #                              ]
+    train_in_cell = df_train[(df_train.x >= x_min - x_cell_margin) &
+                             (df_train.x < x_max + x_cell_margin) &
+                             (df_train.y >= y_min - y_cell_margin) &
+                             (df_train.y < y_max + y_cell_margin)
+                             ]
 
-    #     test_in_cell = df_test[(df_test.x >= x_min) &
-    #                            (df_test.x < x_max) &
-    #                            (df_test.y >= y_min) &
-    #                            (df_test.y < y_max)
-    #                            ]
+    trainfold_in_cell = trainfold[(trainfold.x >= x_min - x_cell_margin) &
+                             (trainfold.x < x_max + x_cell_margin) &
+                             (trainfold.y >= y_min - y_cell_margin) &
+                             (trainfold.y < y_max + y_cell_margin)
+                             ]
 
-    #     train_in_cell, test_in_cell = add_knn_features(
-    #         train_in_cell, test_in_cell, knn_opt_params)
+    valifold_in_cell = valifold[(valifold.x >= x_min) &
+                             (valifold.x < x_max) &
+                             (valifold.y >= y_min) &
+                             (valifold.y < y_max)
+                             ]
 
-    #     place_counts = train_in_cell.place_id.value_counts()
-    #     mask = (place_counts[train_in_cell.place_id.values]
-    #             >= cut_threshold).values
+    test_in_cell = df_test[(df_test.x >= x_min) &
+                           (df_test.x < x_max) &
+                           (df_test.y >= y_min) &
+                           (df_test.y < y_max)
+                           ]
 
-    #     # more than 'th' times rows
-    #     train_in_cell = train_in_cell.loc[mask]
-    #     data_cache[(x_min, x_max, y_min, y_max, cut_threshold)] = train_in_cell, test_in_cell
+    train_in_cell, test_in_cell = add_knn_features(train_in_cell, test_in_cell,
+        knn_params)
+    trainfold_in_cell, valifold_in_cell = add_knn_features(
+        trainfold_in_cell, valifold_in_cell,
+        knn_params)
 
-    # validation_mode = 'place_id' in test_in_cell.columns
+    place_counts = train_in_cell.place_id.value_counts()
+    mask = (place_counts[train_in_cell.place_id.values]
+            >= xgb_params['cut_threshold']).values
+    train_in_cell = train_in_cell.loc[mask]
 
-    # xgboost_params = {
-    #     'n_estimators': int(round(n_estimators)),
-    #     'learning_rate': learning_rate,
-    #     'gamma': gamma,
-    #     'subsample': subsample,
-    #     'colsample_bytree': colsample_bytree,
-    #     'colsample_bylevel': colsample_bylevel,
-    #     'reg_alpha': reg_alpha,
-    #     'reg_lambda': reg_lambda,
-    #     'min_child_weight': min_child_weight,
-    #     'max_depth': int(round(max_depth)),
-    # }
+    place_counts = trainfold_in_cell.place_id.value_counts()
+    mask = (place_counts[trainfold_in_cell.place_id.values]
+            >= xgb_params['cut_threshold']).values
+    trainfold_in_cell = trainfold_in_cell.loc[mask]
 
-    # if validation_mode:
-    #     row_id, pred_place_id = xgboost_predict(train_in_cell, test_in_cell,
-    #                                             xgboost_params=xgboost_params)
-    #     truthvalues = test_in_cell.ix[row_id].place_id.values
+    row_id_test, pred_place_id_test = xgboost_predict(
+        train_in_cell, test_in_cell, xgboost_params=xgb_params)
+    row_id_vali, pred_place_id_vali = xgboost_predict(
+        trainfold_in_cell, valifold_in_cell, xgboost_params=xgb_params)
 
-    #     map3 = map_k_precision(truthvalues, pred_place_id)
-    #     return map3
-    # else:
-    #     row_id, pred_place_id = xgboost_predict(train_in_cell, test_in_cell,
-    #                                             xgboost_params=xgboost_params)
-    #     df = pd.DataFrame(pred_place_id, columns='pred1 pred2 pred3'.split(),
-    #                       index=row_id)
-    #     df.index.rename('row_id', inplace=True)
-    #     return df
+    map3 = map_k_precision(valifold_in_cell.place_id.values, pred_place_id_vali)
+    print(map3)
 
-    pass
+    N_test = row_id_test.shape[0]
+    N_vali = row_id_vali.shape[0]
+
+    test_predictions = pd.DataFrame(pred_place_id_test, 
+        columns='pred1 pred2 pred3'.split(),
+                          index=row_id_test)
+    test_predictions.index.rename('row_id', inplace=True)
+    test_predictions['map3'] = map3
+
+    vali_predictions = pd.DataFrame(pred_place_id_vali, 
+        columns='pred1 pred2 pred3'.split(),
+                          index=row_id_vali)
+    vali_predictions.index.rename('row_id', inplace=True)
+    vali_predictions['map3'] = map3
+
+    print("X: [{:.4f},{:.4f}) Y: [{:.4f},{:.4f}) MAP3: {:.4f}"
+        .format(x_min, x_max, y_min, y_max, map3))
+
+    return test_predictions, vali_predictions
 
 
 def iterate_over_grid(train_data, test_data, trainfold, valifold,
@@ -392,10 +402,10 @@ def iterate_over_grid(train_data, test_data, trainfold, valifold,
             train_data, test_data, trainfold, valifold,
             x_min, x_max, y_min, y_max, xgb_params=XGB_PARAMS_USE,
             knn_params=KNN_PARAMS_USE)
-        test_pred.to_csv('{0}/test_{1:03d}_{1:03d}.csv'.format(RUN_NAME, i, j))
-        vali_pred.to_csv('{0}/vali_{1:03d}_{1:03d}.csv'.format(RUN_NAME, i, j))
-
-
+        test_pred.to_csv('{0}/test_{1:03d}_{1:03d}.csv'.format(RUN_NAME, i, j),
+            index=True, index_label='row_id')
+        vali_pred.to_csv('{0}/vali_{1:03d}_{1:03d}.csv'.format(RUN_NAME, i, j),
+            index=True, index_label='row_id')
 
 def main():
 
