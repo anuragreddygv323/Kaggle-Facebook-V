@@ -87,7 +87,7 @@ ENSEMBLE_MEMBERS = {
 xgb_params = {
     'objective': 'multi:softprob',
     'n_estimators': 100,
-    'learning_rate': 0.2,
+    'learning_rate': 0.1,
     'gamma': 0.03,
     'subsample': 0.5,
     'colsample_bytree': 0.7,
@@ -99,8 +99,8 @@ xgb_params = {
 
 # Set important parameters of the script.
 size = 10.
-NX = 100
-NY = 100
+NX = 50
+NY = 50
 x_step = size/float(NX)
 y_step = size/float(NY)
 x_cell_margin = x_step*0.1

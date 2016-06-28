@@ -93,9 +93,9 @@ y_step = size/float(NY)
 x_cell_margin = x_step*0.1
 y_cell_margin = y_step*0.1
 
-XGB_PARAMS_USE = xgboost_params_1
+XGB_PARAMS_USE = xgboost_params_2
 KNN_PARAMS_USE = knn_opt_params_0
-RUN_NAME = 'run1'
+RUN_NAME = 'run2'
 
 
 def load_data():
@@ -424,6 +424,7 @@ def iterate_over_grid(train_data, test_data, trainfold, valifold,
     pairs = pairs[ijob::njobs]
 
     for (i, j) in pairs:
+        print((i,j))
         vali_filename = '{0}/vali_{1:03d}_{2:03d}.csv'.format(RUN_NAME, i, j)
         test_filename = '{0}/test_{1:03d}_{2:03d}.csv'.format(RUN_NAME, i, j)
 
