@@ -43,7 +43,7 @@ knn_opt_params_0 = {
 # Loosely based on default XGBoost params
 # with a lower learning rate.
 xgboost_params_0 = {
-    'cut_threshold': 1,
+    'cut_threshold': 4,
     'n_estimators': 100,
     'learning_rate': 0.1,
     'gamma': 0.0,
@@ -396,16 +396,20 @@ def iterate_over_grid(train_data, test_data, trainfold, valifold,
     pairs = pairs[ijob::njobs]
 
     for (i, j) in pairs:
+        vali_filename = '{0}/vali_{1:03d}_{2:03d}.csv'.format(RUN_NAME, i, j)
+        test_filename = '{0}/test_{1:03d}_{2:03d}.csv'.format(RUN_NAME, i, j)
+
+        if os.path.isfile(vali_filename) and os.path.isfile(test_filename):
+            continue
+
         x_min, x_max, y_min, y_max = \
             (i*x_step, (i+1)*x_step, j*y_step, (j+1)*y_step)
         test_pred, vali_pred = process_one_cell(
             train_data, test_data, trainfold, valifold,
             x_min, x_max, y_min, y_max, xgb_params=XGB_PARAMS_USE,
             knn_params=KNN_PARAMS_USE)
-        test_pred.to_csv('{0}/test_{1:03d}_{1:03d}.csv'.format(RUN_NAME, i, j),
-            index=True, index_label='row_id')
-        vali_pred.to_csv('{0}/vali_{1:03d}_{1:03d}.csv'.format(RUN_NAME, i, j),
-            index=True, index_label='row_id')
+        test_pred.to_csv(test_filename, index=True, index_label='row_id')
+        vali_pred.to_csv(vali_filename, index=True, index_label='row_id')
 
 def main():
 
