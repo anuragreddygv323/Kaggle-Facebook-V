@@ -56,6 +56,34 @@ xgboost_params_0 = {
     'max_depth': 5
 }
 
+xgboost_params_1 = {
+     'cut_threshold' :  3,
+     'n_estimators': 100,
+     'learning_rate': 0.075,
+     'gamma': 0.05,
+     'subsample': 0.6,
+     'colsample_bytree': 0.4,
+     'colsample_bylevel': 0.3,
+     'reg_alpha': 0.04,
+     'reg_lambda': 1.2,
+     'min_child_weight': 0.5,
+     'max_depth': 4
+}
+
+xgboost_params_2 = {
+    'cut_threshold': 5,
+    'n_estimators': 120,
+    'learning_rate': 0.05,
+    'gamma': 0.03,
+    'subsample': 0.8,
+    'colsample_bytree': 0.6,
+    'colsample_bylevel': 0.7,
+    'reg_alpha': 0.05,
+    'reg_lambda': 0.7,
+    'min_child_weight': 0.7,
+    'max_depth': 5
+}
+
 # Set important parameters of the script.
 size = 10.
 NX = 100
@@ -65,9 +93,9 @@ y_step = size/float(NY)
 x_cell_margin = x_step*0.1
 y_cell_margin = y_step*0.1
 
-XGB_PARAMS_USE = xgboost_params_0
+XGB_PARAMS_USE = xgboost_params_1
 KNN_PARAMS_USE = knn_opt_params_0
-RUN_NAME = 'run0'
+RUN_NAME = 'run1'
 
 
 def load_data():
@@ -312,9 +340,9 @@ def xgboost_predict(train, test, xgboost_params={}, map_at_k_K=3):
 def process_one_cell(df_train, df_test, trainfold, valifold, 
                      x_min, x_max, y_min, y_max, xgb_params={},
                      knn_params={}):
-    if x_max == size:
+    if np.abs(x_max - size) < 0.001:
         x_max += 1.0e-5
-    if y_max == size:
+    if np.abs(y_max - size) < 0.001:
         y_max += 1.0e-5
 
     train_in_cell = df_train[(df_train.x >= x_min - x_cell_margin) &
