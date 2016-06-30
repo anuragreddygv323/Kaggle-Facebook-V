@@ -48,40 +48,41 @@ import os
 import sys
 import itertools
 import xgboost
+import pprint
 
 ENSEMBLE_MEMBERS = {
-    'ET': ('extratrees_vali_2016-06-26-20-34.csv.gz',
-           'extratrees_test_2016-06-26-20-34.csv.gz'),
-    'GB': ('gradient_boost_vali_2016-06-26-20-35.csv.gz',
-           'gradient_boost_test_2016-06-26-20-35.csv.gz'),
-    'NN1': ('knn_01_vali_2016-06-26-20-39.csv.gz',
-            'knn_01_test_2016-06-26-20-39.csv.gz'),
-    'NN5': ('knn_05_vali_2016-06-26-20-39.csv.gz',
-            'knn_05_test_2016-06-26-20-39.csv.gz'),
-    'NN9': ('knn_09_vali_2016-06-26-20-39.csv.gz',
-            'knn_09_test_2016-06-26-20-39.csv.gz'),
-    'NN25': ('knn_25_vali_2016-06-26-20-39.csv.gz',
-             'knn_25_test_2016-06-26-20-39.csv.gz'),
-    'NN37': ('knn_37_vali_2016-06-26-20-39.csv.gz',
-             'knn_37_test_2016-06-26-20-39.csv.gz'),
-    'NN51': ('knn_51_vali_2016-06-26-20-39.csv.gz',
-             'knn_51_test_2016-06-26-20-39.csv.gz'),
-    'NB': ('naive_bayes_vali_2016-06-26-22-03.csv.gz',
-           'naive_bayes_test_2016-06-26-22-03.csv.gz'),
-    'NXGB': ('naive_xgboost_vali_2016-06-26-20-34.csv.gz',
-             'naive_xgboost_test_2016-06-26-20-34.csv.gz'),
-    'RF': ('random_forest_vali_2016-06-26-20-34.csv.gz',
-           'random_forest_test_2016-06-26-20-34.csv.gz'),
-    'RBFSVM': ('rbf_svm_vali_2016-06-26-20-34.csv.gz',
-               'rbf_svm_test_2016-06-26-20-34.csv.gz'),
+    'ET': ('extratrees_vali_2016-06-26-20-34.csv',
+           'extratrees_test_2016-06-26-20-34.csv'),
+    'GB': ('gradient_boost_vali_2016-06-26-20-35.csv',
+           'gradient_boost_test_2016-06-26-20-35.csv'),
+    'NN1': ('knn_01_vali_2016-06-26-20-39.csv',
+            'knn_01_test_2016-06-26-20-39.csv'),
+    'NN5': ('knn_05_vali_2016-06-26-20-39.csv',
+            'knn_05_test_2016-06-26-20-39.csv'),
+    'NN9': ('knn_09_vali_2016-06-26-20-39.csv',
+            'knn_09_test_2016-06-26-20-39.csv'),
+    'NN25': ('knn_25_vali_2016-06-26-20-39.csv',
+             'knn_25_test_2016-06-26-20-39.csv'),
+    'NN37': ('knn_37_vali_2016-06-26-20-39.csv',
+             'knn_37_test_2016-06-26-20-39.csv'),
+    'NN51': ('knn_51_vali_2016-06-26-20-39.csv',
+             'knn_51_test_2016-06-26-20-39.csv'),
+    'NB': ('naive_bayes_vali_2016-06-26-22-03.csv',
+           'naive_bayes_test_2016-06-26-22-03.csv'),
+    'NXGB': ('naive_xgboost_vali_2016-06-26-20-34.csv',
+             'naive_xgboost_test_2016-06-26-20-34.csv'),
+    'RF': ('random_forest_vali_2016-06-26-20-34.csv',
+           'random_forest_test_2016-06-26-20-34.csv'),
+    'RBFSVM': ('rbf_svm_vali_2016-06-26-20-34.csv',
+               'rbf_svm_test_2016-06-26-20-34.csv'),
 
     # these runs are with XGBoost with NN features
-    'XGNN0': ('run0_vali.csv.gz',
-              'run0_test.csv.gz'),
-    'XGNN1': ('run1_vali.csv.gz',
-              'run1_test.csv.gz'),
-    'XGNN2': ('run2_vali.csv.gz',
-              'run2_test.csv.gz'),
+    'XGNN0': ('run0_vali.csv',
+              'run0_test.csv'),
+    'XGNN1': ('run1_vali.csv',
+              'run1_test.csv'),
+    'XGNN2': ('run2_vali.csv',
+              'run2_test.csv'),
 }
 
 xgb_params = {
@@ -244,6 +245,9 @@ def main():
         predict_y_test_idx = np.argsort(
             predict_y, axis=1)[:, -3:][:, ::-1]
         predicted_test_place_id = clf.classes_.take(predict_y_test_idx)
+
+        idx = np.argsort(clf.feature_importances_)[::-1]
+        pprint.pprint(list(zip(inbin.columns[idx], clf.feature_importances_[idx])))
 
         p = predicted_test_place_id
 

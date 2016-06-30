@@ -93,9 +93,9 @@ y_step = size/float(NY)
 x_cell_margin = x_step*0.1
 y_cell_margin = y_step*0.1
 
-XGB_PARAMS_USE = xgboost_params_2
+XGB_PARAMS_USE = xgboost_params_0
 KNN_PARAMS_USE = knn_opt_params_0
-RUN_NAME = 'run2'
+RUN_NAME = 'run0'
 
 
 def load_data():
