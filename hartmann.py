@@ -1,6 +1,12 @@
 
-## FROM https://www.kaggle.com/zeroblue/facebook-v-predicting-check-ins/mad-scripts-battle-z
-__author__ = 'Michael Hartman'
+## Ravi S.
+#
+# Took the original script
+# FROM https://www.kaggle.com/zeroblue/facebook-v-predicting-check-ins/mad-scripts-battle-z
+#
+# and modified it to be amenable to bayesian optimization of hyperparamters.
+
+__author__ = 'Michael Hartman', 'Ravi S.'
 
 '''Inspired by several scripts at:
 https://www.kaggle.com/c/facebook-v-predicting-check-ins/scripts
@@ -14,6 +20,13 @@ from sklearn.neighbors import KNeighborsClassifier
 import time
 from datetime import timedelta
 import gc
+import functools
+import bayes_opt
+
+import uuid
+
+uuid_string = str(uuid.uuid4())
+print(uuid_string)
 
 # Found at: https://www.kaggle.com/rshekhar2/facebook-v-predicting-check-ins/xgboost-cv-example-with-small-bug
 def mapkprecision(truthvalues, predictions):
@@ -156,7 +169,7 @@ def process_grid(df_train, df_test, x_cuts, y_cuts, t_cuts,
                                              fw, th, n_neighbors)
                 preds_list.append(cell_pred)
         elapsed = (time.time() - row_start_time)
-        print('Row', i, 'completed in:', timedelta(seconds=elapsed))
+        #print('Row', i, 'completed in:', timedelta(seconds=elapsed))
     preds = np.vstack(preds_list)
     return preds
 
@@ -194,9 +207,9 @@ def prepare_data(datapath, val_start_day):
         df_train, df_test = validation_split(df_train, val_start_day)
         val_label = df_test['place_id']
         df_test.drop(['place_id'], axis=1, inplace=True)
-        print('Feature engineering on train')
+        # print('Feature engineering on train')
         df_train = feature_engineering(df_train)
-        print('Feature engineering on validation')
+        # print('Feature engineering on validation')
         df_test = feature_engineering(df_test)
     else:
         print('Feature engineering on train')
@@ -240,45 +253,100 @@ def feature_engineering(df):
     df['accuracy'] = np.log10(df['accuracy'])
     return df
     
-print('Starting...')
-start_time = time.time()
-# Global variables
-datapath = '../input/'
-# Change val_start_day to zero to generate predictions
-val_start_day = 0 # Day at which to cut validation
-th = 5 # Threshold at which to cut places from train
-fw = [0.6, 0.32935, 0.56515, 0.2670, 22, 52, 0.51785]
+def main(w_acc=0.6, w_day_of_yr=0.32935, w_min=0.56515, 
+         w_weekday=0.2670, w_x=22., w_y=52., w_year=0.51785, threshold=5,
+         kNN_k=31, nx=20, ny=20):
 
-# Defining the size of the grid
-x_cuts = 20 # number of cuts along x 
-y_cuts = 20 # number of cuts along y
-#TODO: More general solution for t_cuts. For now must be 4.
-t_cuts = 4 # number of cuts along time. 
-x_border_aug = 0.04 # expansion of x border on train 
-y_border_aug = 0.01 # expansion of y border on train
-time_aug = 2
-n_neighbors = 31
+    global fw
 
-df_train, df_test, val_label = prepare_data(datapath, val_start_day)
-gc.collect()
+    #print('Starting...')
+    start_time = time.time()
+    # Global variables
+    datapath = '../input/'
+    # Change val_start_day to zero to generate predictions
+    val_start_day = 339 # Day at which to cut validation
+    #th = 5 # Threshold at which to cut places from train
+    #fw = [0.6, 0.32935, 0.56515, 0.2670, 22, 52, 0.51785]
 
-elapsed = (time.time() - start_time)
-print('Data prepared in:', timedelta(seconds=elapsed))
-    
-preds = process_grid(df_train, df_test, x_cuts, y_cuts, t_cuts,
-                     x_border_aug, y_border_aug, time_aug, 
-                     fw, th, n_neighbors)
-elapsed = (time.time() - start_time)
-print('Predictions made in:', timedelta(seconds=elapsed))
+    th = threshold
+    fw = [w_acc, w_day_of_yr, w_min, w_weekday, w_x, w_y, w_year]
 
-#del df_train, df_test
+    # Defining the size of the grid
+    x_cuts = int(round(nx)) # number of cuts along x 
+    y_cuts = int(round(ny)) # number of cuts along y
+    #TODO: More general solution for t_cuts. For now must be 4.
+    t_cuts = 4 # number of cuts along time. 
+    x_border_aug = 0.04 # expansion of x border on train 
+    y_border_aug = 0.01 # expansion of y border on train
+    time_aug = 2
+    n_neighbors = int(round(kNN_k))
 
-if val_start_day > 0:
-    preds = preds[preds[:, 0] > 0] # only use rows predicted
-    labels = val_label.loc[preds[:, 0]].values
-    score = mapkprecision(labels, preds[:, 1:])
-    print('Final score:', score)
-else:
-    generate_submission(preds)
-elapsed = (time.time() - start_time)
-print('Task completed in:', timedelta(seconds=elapsed))
+    df_train, df_test, val_label = prepare_data(datapath, val_start_day)
+    gc.collect()
+
+    elapsed = (time.time() - start_time)
+    #print('Data prepared in:', timedelta(seconds=elapsed))
+        
+    preds = process_grid(df_train, df_test, x_cuts, y_cuts, t_cuts,
+                         x_border_aug, y_border_aug, time_aug, 
+                         fw, th, n_neighbors)
+    elapsed = (time.time() - start_time)
+    #print('Predictions made in:', timedelta(seconds=elapsed))
+
+    #del df_train, df_test
+
+    if val_start_day > 0:
+        preds = preds[preds[:, 0] > 0] # only use rows predicted
+        labels = val_label.loc[preds[:, 0]].values
+        score = mapkprecision(labels, preds[:, 1:])
+        return score
+        #print('Final score:', score)
+    else:
+        generate_submission(preds)
+    elapsed = (time.time() - start_time)
+    #print('Task completed in:', timedelta(seconds=elapsed))
+
+
+if __name__ == '__main__':
+
+    f = functools.partial(main, w_y=52.)
+
+    bo = bayes_opt.BayesianOptimization(f=f, pbounds={
+                    'w_acc': (0.1, 2),
+                    'w_day_of_yr': (0.05, 2),
+                    'w_min': (0.05, 3.5),
+                    'w_weekday': (0.03, 3.),
+                    'w_x': (5, 50),
+                    #'w_y': 52.,
+                    'w_year': (0.05, 3.),
+                    'threshold': (2, 10),
+                    'kNN_k': (20, 40),
+                    'nx': (10, 50),
+                    'ny': (10, 50)
+            }, verbose=True
+        )
+    bo.explore({
+                    'w_acc': (0.6,),
+                    'w_day_of_yr': (0.32935,),
+                    'w_min': (0.56515,),
+                    'w_weekday': (0.2670,),
+                    'w_x': (22.,),
+                    #'w_y': 52.,
+                    'w_year': (0.51785,),
+                    'threshold': (5,),
+                    'kNN_k': (31,),
+                    'nx': (20, ),
+                    'ny': (20, )
+       })
+    bo.maximize(init_points=3, n_iter=1, acq="ei", xi=0.1)
+    with open('knn_params/{}.json'.format(uuid_string), 'w') as fh:
+        fh.write(json.dumps(bo.res, sort_keys=True, indent=4))
+
+    for i in range(300):
+        bo.maximize(n_iter=3, acq="ei", xi=0.0) # exploration points
+        with open('knn_params/{}.json'.format(uuid_string), 'w') as fh:
+            fh.write(json.dumps(bo.res, sort_keys=True, indent=4))
+
+        bo.maximize(n_iter=3, acq="ei", xi=0.1) # exploitation points
+        with open('knn_params/{}.json'.format(uuid_string), 'w') as fh:
+            fh.write(json.dumps(bo.res, sort_keys=True, indent=4))
