@@ -84,18 +84,48 @@ xgboost_params_2 = {
     'max_depth': 5
 }
 
+
+xgboost_params_3 = {
+    'cut_threshold': 6,
+    'n_estimators': 120,
+    'learning_rate': 0.04,
+    'gamma': 0.05,
+    'subsample': 0.5,
+    'colsample_bytree': 0.4,
+    'colsample_bylevel': 0.5,
+    'reg_alpha': 0.03,
+    'reg_lambda': 0.7,
+    'min_child_weight': 0.6,
+    'max_depth': 5
+}
+
+xgboost_params_4 = {
+    'cut_threshold': 5,
+    'n_estimators': 150,
+    'learning_rate': 0.035,
+    'gamma': 0.03,
+    'subsample': 0.4,
+    'colsample_bytree': 0.7,
+    'colsample_bylevel': 0.6,
+    'reg_alpha': 0.06,
+    'reg_lambda': 0.8,
+    'min_child_weight': 0.8,
+    'max_depth': 5
+}
+
+
 # Set important parameters of the script.
 size = 10.
-NX = 100
+NX = 50
 NY = 100
 x_step = size/float(NX)
 y_step = size/float(NY)
 x_cell_margin = x_step*0.1
 y_cell_margin = y_step*0.1
 
-XGB_PARAMS_USE = xgboost_params_0
+XGB_PARAMS_USE = xgboost_params_3
 KNN_PARAMS_USE = knn_opt_params_0
-RUN_NAME = 'run0'
+RUN_NAME = 'run3'
 
 
 def load_data():
