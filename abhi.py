@@ -1,4 +1,5 @@
 
+from __future__ import division
 
 # Ravi S.
 #
@@ -26,7 +27,7 @@ The script does the following:
 - takes 30 min  to run and produces a score of 0.5865 lb
 '''
 
-from __future__ import division
+
 
 import numpy as np
 import pandas as pd

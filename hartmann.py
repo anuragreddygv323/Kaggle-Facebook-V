@@ -1,4 +1,6 @@
 
+from __future__ import division
+
 ## Ravi S.
 #
 # Took the original script
@@ -14,7 +16,7 @@ Special thanks to Sandro for starting the madness. :-)
 https://www.kaggle.com/svpons/facebook-v-predicting-check-ins/grid-plus-classifier
 '''
 
-from __future__ import division
+
 
 import numpy as np
 import pandas as pd
@@ -194,8 +196,8 @@ def validation_split(df, val_start_time):
     time = df['time']
     df_val = df.loc[(time>=val_start_time)].copy()
     df = df.loc[(time<val_start_time)].copy()
-    print(df_val.shape)
-    print(df.shape)
+    # print(df_val.shape)
+    # print(df.shape)
     return df, df_val
 
 def remove_infrequent_places(df, th=5):
