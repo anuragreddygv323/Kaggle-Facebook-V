@@ -1,7 +1,11 @@
-#!/usr/bin/env python3
+
+# coding: utf-8
+
+# In[1]:
 
 import pandas as pd
 import numpy as np
+import numba
 import datetime
 import time
 import os
@@ -10,92 +14,92 @@ import itertools
 import xgboost
 import tqdm
 import multiprocessing
+import sklearn.preprocessing
 
 ENSEMBLE_MEMBERS = {
     'ET': 'extratrees_test_2016-06-26-20-34.csv',
-    #'GB': 'gradient_boost_test_2016-06-26-20-35.csv',
-    #'NN1': 'knn_01_test_2016-06-26-20-39.csv',
-    #'NN5': 'knn_05_test_2016-06-26-20-39.csv',
-    #'NN9': 'knn_09_test_2016-06-26-20-39.csv',
-    'NN25': 'knn_25_test_2016-06-26-20-39.csv',
-    #'NN37': 'knn_37_test_2016-06-26-20-39.csv',
-    #'NN51': 'knn_51_test_2016-06-26-20-39.csv',
-    'NB': 'naive_bayes_test_2016-06-26-22-03.csv',
+#    'GB': 'gradient_boost_test_2016-06-26-20-35.csv',
+#    'NN1': 'knn_01_test_2016-06-26-20-39.csv',
+#    'NN5': 'knn_05_test_2016-06-26-20-39.csv',
+#    'NN9': 'knn_09_test_2016-06-26-20-39.csv',
+#    'NN25': 'knn_25_test_2016-06-26-20-39.csv',
+#    'NN37': 'knn_37_test_2016-06-26-20-39.csv',
+#    'NN51': 'knn_51_test_2016-06-26-20-39.csv',
+#    'NB': 'naive_bayes_test_2016-06-26-22-03.csv',
     'NXGB': 'naive_xgboost_test_2016-06-26-20-34.csv',
     'RF': 'random_forest_test_2016-06-26-20-34.csv',
-    #'RBFSVM': 'rbf_svm_test_2016-06-26-20-34.csv',
+#    'RBFSVM': 'rbf_svm_test_2016-06-26-20-34.csv',
 
-    # these runs are with XGBoost with NN features
+#     these runs are with XGBoost with NN features
     'XGNN0': 'run0_test.csv',
     'XGNN1': 'run1_test.csv',
     'XGNN2': 'run2_test.csv',
+    'XGNN3': 'run3_test.csv',
 }
 
+
+# In[2]:
+
 ens = {}
+df = None
 
 def load_ensemble():
 
     d = {}
     for k in ENSEMBLE_MEMBERS:
         d[k] = pd.read_csv(ENSEMBLE_MEMBERS[k])
-        d[k].set_index('row_id', inplace=True)
-        d[k].sort_index(inplace=True)
-        d[k] = d[k]['map3 pred1 pred2 pred3'.split()]
+        d[k] = d[k]['row_id map3 pred1 pred2 pred3'.split()]
 
     return d
 
 
-def make_row(row_id):
-    t = []
+# In[3]:
 
-    for k in ens:
-        if row_id in ens[k].index:
-            t.append((
-                k,
-                float(ens[k].iloc[row_id]['map3']),
-                int(ens[k].iloc[row_id]['pred1']),
-                int(ens[k].iloc[row_id]['pred2']),
-                int(ens[k].iloc[row_id]['pred3'])
-                )
-                )
-    df = pd.DataFrame(t, columns='k map3 pred1 pred2 pred3'.split())
-    df.set_index('k', inplace=True)
-    d = {}
-    for r in np.unique(df['pred1 pred2 pred3'.split()].values.ravel()):
-        d[r] = 0.
+@numba.autojit
+def top_3_preds(map3_vals, pred_place_ids_block):
+    n_classifiers = map3_vals.shape[0]
+    n_preds = 3
+    
+    unique_place_ids = np.sort(np.unique(pred_place_ids_block.ravel()))
+    weights = np.zeros(unique_place_ids.shape[0], dtype=np.float64)
+    
+    for i in range(n_classifiers):
+        for j in range(n_preds):
+            idx = np.searchsorted(unique_place_ids, pred_place_ids_block[i,j])
+            weights[idx] += 1./(j+1) * map3_vals[i]
+            
+    idx = np.argsort(weights)[::-1][:3]
+    return unique_place_ids[idx]
 
-    for idx, z in df.iterrows():
-        d[z['pred1']] += z['map3']
-        d[z['pred2']] += z['map3'] * 0.5
-        d[z['pred3']] += z['map3'] * (1./3.)
-
-    df2 = (pd.DataFrame([(m, d[m]) for m in d], 
-        columns=['place_id','weight']))
-    df2.sort_values('weight',inplace=True, ascending=False)
-
-    s = ('{},{} {} {}\n'.format( row_id, 
-        int(df2.iloc[0].place_id),
-        int(df2.iloc[1].place_id),
-        int(df2.iloc[2].place_id))
-    )
-    return s
+    
 
 
-def main():
-    global ens
+# In[4]:
 
-    ens = load_ensemble()
-    N_test = 8607230
+ens = load_ensemble()
+df = pd.concat(ens.values())
+del ens
 
-    fh = open('comb1.csv', 'w')
-    fh.write('row_id,place_id\n')
+fh = open('comb2.csv', 'w')
+fh.write('row_id,place_id\n')
 
-    for i in tqdm.trange(N_test):
-        fh.write(make_row(i))
+dt = datetime.datetime.now()
 
-    fh.close()
+for row_id, d in df.groupby(['row_id']):
+    z = d.drop('row_id', axis=1)
+    map3s = z.map3.values
+    z.drop('map3', inplace=True, axis=1)
+    p = top_3_preds(map3s, z.values)
+    fh.write('{},{} {} {}\n'.format(row_id, p[0], p[1], p[2]))
+    
+    if (row_id%10000 == 0):
+        mm = datetime.datetime.now()
+        print(mm - dt)
+        dt = mm
+        print(row_id)
+
+
+# In[ ]:
 
 
 
-if __name__ == '__main__':
-    main()

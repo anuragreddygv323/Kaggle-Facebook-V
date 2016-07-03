@@ -26,6 +26,7 @@ The script does the following:
 - takes 30 min  to run and produces a score of 0.5865 lb
 '''
 
+from __future__ import division
 
 import numpy as np
 import pandas as pd
@@ -35,6 +36,7 @@ import time
 import bayes_opt
 import functools
 import uuid
+import json
 
 uuid_string = str(uuid.uuid4())
 print(uuid_string)
@@ -145,8 +147,14 @@ def get_map3():
     if cross_validation == 1:
         # print('Loading cross validation data ...')
 
-        test = train.query('month >=5.0 and year >=2.0')
-        train = train.query('~(month >=5.0 and year >=2.0)')
+        # test = train.query('month >=5.0 and year >=2.0')
+        # train = train.query('~(month >=5.0 and year >=2.0)')
+
+        test = train.query('time >= 722032')
+        train = train.query('time < 722032')
+        
+        # print(test.shape[0])
+        # print(train.shape[0])
         ytrain = train['place_id']
         test = test.query('place_id in @ytrain')
         ytest = test['place_id']

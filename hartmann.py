@@ -14,6 +14,8 @@ Special thanks to Sandro for starting the madness. :-)
 https://www.kaggle.com/svpons/facebook-v-predicting-check-ins/grid-plus-classifier
 '''
 
+from __future__ import division
+
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
@@ -22,6 +24,7 @@ from datetime import timedelta
 import gc
 import functools
 import bayes_opt
+import json
 
 import uuid
 
@@ -187,10 +190,12 @@ def generate_submission(preds):
             n=n+1
         out.writelines(rows)
 
-def validation_split(df, val_start_day):
-    day = df['time']//1440
-    df_val = df.loc[(day>=val_start_day)].copy()
-    df = df.loc[(day<val_start_day)].copy()
+def validation_split(df, val_start_time):
+    time = df['time']
+    df_val = df.loc[(time>=val_start_time)].copy()
+    df = df.loc[(time<val_start_time)].copy()
+    print(df_val.shape)
+    print(df.shape)
     return df, df_val
 
 def remove_infrequent_places(df, th=5):
@@ -199,12 +204,12 @@ def remove_infrequent_places(df, th=5):
     df = df.loc[mask]
     return df
     
-def prepare_data(datapath, val_start_day):
+def prepare_data(datapath, val_start_time):
     val_label = None
     df_train = load_data(datapath + 'train.csv')
-    if val_start_day > 0:
+    if val_start_time > 0:
         # Create validation data
-        df_train, df_test = validation_split(df_train, val_start_day)
+        df_train, df_test = validation_split(df_train, val_start_time)
         val_label = df_test['place_id']
         df_test.drop(['place_id'], axis=1, inplace=True)
         # print('Feature engineering on train')
@@ -263,8 +268,8 @@ def main(w_acc=0.6, w_day_of_yr=0.32935, w_min=0.56515,
     start_time = time.time()
     # Global variables
     datapath = '../input/'
-    # Change val_start_day to zero to generate predictions
-    val_start_day = 339 # Day at which to cut validation
+    # Change val_start_time to zero to generate predictions
+    val_start_time = 722032 # Day at which to cut validation
     #th = 5 # Threshold at which to cut places from train
     #fw = [0.6, 0.32935, 0.56515, 0.2670, 22, 52, 0.51785]
 
@@ -281,7 +286,7 @@ def main(w_acc=0.6, w_day_of_yr=0.32935, w_min=0.56515,
     time_aug = 2
     n_neighbors = int(round(kNN_k))
 
-    df_train, df_test, val_label = prepare_data(datapath, val_start_day)
+    df_train, df_test, val_label = prepare_data(datapath, val_start_time)
     gc.collect()
 
     elapsed = (time.time() - start_time)
@@ -295,11 +300,11 @@ def main(w_acc=0.6, w_day_of_yr=0.32935, w_min=0.56515,
 
     #del df_train, df_test
 
-    if val_start_day > 0:
+    if val_start_time > 0:
         preds = preds[preds[:, 0] > 0] # only use rows predicted
         labels = val_label.loc[preds[:, 0]].values
         score = mapkprecision(labels, preds[:, 1:])
-        return score
+        return float(score)
         #print('Final score:', score)
     else:
         generate_submission(preds)
