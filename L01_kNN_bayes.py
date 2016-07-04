@@ -171,15 +171,15 @@ def process_grid(df_train, df_test, outfilename,
                  # n_neighbors=31
 
                  # OPTIMIZED (Run A7 in notebook)
-                 th=1.4639,
-                 w_x=655.4717,
-                 w_y=1000.00,
-                 w_hour=6.1265,
-                 w_log10acc=26.3359,
-                 w_weekday=5.6402,
-                 w_month=4.2141,
-                 w_year=9.1151,
-                 n_neighbors=19
+                 # th=1.4639,
+                 # w_x=655.4717,
+                 # w_y=1000.00,
+                 # w_hour=6.1265,
+                 # w_log10acc=26.3359,
+                 # w_weekday=5.6402,
+                 # w_month=4.2141,
+                 # w_year=9.1151,
+                 # n_neighbors=19
 
                  # OPTIMIZED (Run A8 in notebook)
                  # th=0.3993,
@@ -193,15 +193,15 @@ def process_grid(df_train, df_test, outfilename,
                  # n_neighbors=16
 
                  # OPTIMIZED (Run A9 in notebook)
-                 # th=3.0313,
-                 # w_x=538.8175,
-                 # w_y=1000.00,
-                 # w_hour=6.4821,
-                 # w_log10acc=10.7146,
-                 # w_weekday=3.9611,
-                 # w_month=5.6011,
-                 # w_year=11.3404,
-                 # n_neighbors=24
+                 th=3.0313,
+                 w_x=538.8175,
+                 w_y=1000.00,
+                 w_hour=6.4821,
+                 w_log10acc=10.7146,
+                 w_weekday=3.9611,
+                 w_month=5.6011,
+                 w_year=11.3404,
+                 n_neighbors=24
                  ):
     """
     Iterates over all grid cells, aggregates the results and makes the
