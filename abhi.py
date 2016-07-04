@@ -28,7 +28,6 @@ The script does the following:
 '''
 
 
-
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
@@ -43,6 +42,7 @@ uuid_string = str(uuid.uuid4())
 print(uuid_string)
 
 # Parameters
+BAYES = False
 cross_validation = 1  # 1 = cross validation, 0 = test data submission
 onecell = 0  # 0 = all grid cells, 1 = one grid cell specified by grid_onecell
 grid_onecell = 200
@@ -68,7 +68,8 @@ weights = np.tile(np.array([490.0, 980.0, 4.0, 3.1, 2.1, 10.0, 10.0, 36])[
 
 def calcgridwisemap3(group):
     score = ([1/1.0, 1/2.0, 1/3.0]*(np.asarray(group[['ytest']]) ==
-             np.asarray(group[['id1', 'id2', 'id3']]))).sum()/group.shape[0]
+                                    np.asarray(group[['id1', 'id2', 'id3']]))
+             ).sum()/group.shape[0]
     return score
 
 
@@ -153,7 +154,7 @@ def get_map3():
 
         test = train.query('time >= 722032')
         train = train.query('time < 722032')
-        
+
         # print(test.shape[0])
         # print(train.shape[0])
         ytrain = train['place_id']
@@ -165,7 +166,7 @@ def get_map3():
         test.set_index('row_id', inplace=True)
 
     else:
-        # print('Loading data ...')
+        print('Loading data ...')
         test = pd.read_csv('../input/test.csv', index_col=0)
 
         test['hour'] = ((test['time']+120)/60) % 24+1
@@ -235,10 +236,10 @@ def get_map3():
         # Preparing data
         le = LabelEncoder()
         y = le.fit_transform(grid_train.place_id.values)
-        X = grid_train[
-            ['x', 'y', 'hour', 'weekday', 'month', 'year', 'acc']].values * weights[g_id][:7]
-        X_test = grid_test[
-            ['x', 'y', 'hour', 'weekday', 'month', 'year', 'acc']].values * weights[g_id][:7]
+        X = (grid_train[['x', 'y', 'hour', 'weekday', 'month', 'year',
+                         'acc']].values * weights[g_id][:7])
+        X_test = (grid_test[['x', 'y', 'hour', 'weekday', 'month', 'year',
+                             'acc']].values * weights[g_id][:7])
 
         # Applying the knn classifier
         # nearest = (weights[g_id][7]).copy().astype(int)
@@ -283,9 +284,9 @@ def get_map3():
     four_hour_prob = getprob(four_hour_indices, four_hour, nn)
 
     total_prob = np.log10(four_hour_prob)*w_four_hour_prob \
-                    + np.log10(knn_prob)*w_knn_prob \
-                    + np.log10(hour_prob)*w_hour_prob \
-                    + np.log10(weekday_prob)*w_weekday_prob
+        + np.log10(knn_prob)*w_knn_prob \
+        + np.log10(hour_prob)*w_hour_prob \
+        + np.log10(weekday_prob)*w_weekday_prob
 
     total_prob_sorted = np.sort(total_prob)[:, ::-1]
     max3index = np.argsort(-total_prob)
@@ -300,27 +301,38 @@ def get_map3():
         #       ).sum()/max3placeids[np.nonzero(max3placeids[:, 0])].shape[0])
 
         # calculate map3 for each grid
-        max3placeids1 = pd.DataFrame({'row_id': test.index.values, 'grid_cell': test[
-                                     'grid_cell'], 'ytest': ytest.values, 'id1': max3placeids[:, 0], 'id2': max3placeids[:, 1], 'id3': max3placeids[:, 2]})
+        max3placeids1 = pd.DataFrame({
+            'row_id': test.index.values,
+            'grid_cell': test['grid_cell'],
+            'ytest': ytest.values,
+            'id1': max3placeids[:, 0],
+            'id2': max3placeids[:, 1],
+            'id3': max3placeids[:, 2]})
         gridwisemap3 = max3placeids1.groupby(
             'grid_cell').apply(calcgridwisemap3)
-        return (([1/1.0, 1/2.0, 1/3.0]*(ytest[:, None] == max3placeids[:, 0:3])).sum()/max3placeids[np.nonzero(max3placeids[:, 0])].shape[0])
+        return (([1/1.0, 1/2.0, 1/3.0]*(ytest[:, None] == max3placeids[:, 0:3]))
+                .sum()/max3placeids[np.nonzero(max3placeids[:, 0])].shape[0])
     else:
         print('writing submission file...')
-        max3placeids = pd.DataFrame({'row_id': test.index.values, 'id1': max3placeids[
-                                    :, 0], 'id2': max3placeids[:, 1], 'id3': max3placeids[:, 2]})
+        max3placeids = pd.DataFrame({
+            'row_id': test.index.values,
+            'id1': max3placeids[:, 0],
+            'id2': max3placeids[:, 1],
+            'id3': max3placeids[:, 2]})
         max3placeids['place_id'] = max3placeids.id1.astype(str).str.cat(
-            [max3placeids.id2.astype(str), max3placeids.id3.astype(str)], sep=' ')
+            [max3placeids.id2.astype(str), max3placeids.id3.astype(str)],
+            sep=' ')
         max3placeids[['row_id', 'place_id']].to_csv(
             'abhi.csv', header=True, index=False)
         print('End of program')
+        return 0.
 
 
 def get_vali_with_params(w_x=490.0, w_y=980.0, w_hour=4.0, w_weekday=3.1,
-      w_month=2.1, w_year=10.0, w_accuracy=10.0, kNN_k=36,
-      four_hour_prob=0.1, knn_prob=1.,
-      hour_prob=0.1, weekday_prob=0.4,
-      nx=20, ny=40, threshold=8):
+                         w_month=2.1, w_year=10.0, w_accuracy=10.0, kNN_k=36,
+                         four_hour_prob=0.1, knn_prob=1.,
+                         hour_prob=0.1, weekday_prob=0.4,
+                         nx=20, ny=40, threshold=8):
 
     global weights, w_four_hour_prob, w_knn_prob, w_hour_prob, w_weekday_prob
     global n_cell_x, n_cell_y, th
@@ -328,8 +340,9 @@ def get_vali_with_params(w_x=490.0, w_y=980.0, w_hour=4.0, w_weekday=3.1,
     n_cell_y = int(round(ny))
     n_cell_x = int(round(nx))
 
-    weights = weights = np.tile(np.array([w_x, w_y, w_hour, w_weekday,
-        w_month, w_year, w_accuracy, int(round(kNN_k))])[:, None], n_cell_x*n_cell_y).T  # feature weights
+    weights = weights = np.tile(np.array(
+        [w_x, w_y, w_hour, w_weekday, w_month, w_year, w_accuracy,
+         int(round(kNN_k))])[:, None], n_cell_x*n_cell_y).T  # feature weights
 
     w_four_hour_prob = four_hour_prob
     w_knn_prob = knn_prob
@@ -338,65 +351,80 @@ def get_vali_with_params(w_x=490.0, w_y=980.0, w_hour=4.0, w_weekday=3.1,
 
     th = int(round(threshold))
 
-    return get_map3()
-
+    return float(get_map3())
 
 
 if __name__ == '__main__':
 
-    f = functools.partial(get_vali_with_params, w_y=980.0, knn_prob=1.0)
+    if BAYES:
+        f = functools.partial(get_vali_with_params, w_y=980.0, knn_prob=1.0)
 
-    bo = bayes_opt.BayesianOptimization(f=f, pbounds={
-                'w_x': (200, 1000),
-                #'w_y': 980.0,
-                'w_hour': (1, 10),
-                'w_weekday': (1, 10),
-                'w_month': (1, 10),
-                'w_year': (2, 20),
-                'w_accuracy': (3, 30),
-                'kNN_k': (20, 41),
-                'four_hour_prob': (0, 0.3),
-                #'knn_prob': 1.,
-                'hour_prob': (0, 0.3),
-                'weekday_prob': (0.1, 0.6),
-                'nx': (10, 60),
-                'ny': (10, 60),
-                'threshold': (2, 11),
-            }, verbose=True
+        bo = bayes_opt.BayesianOptimization(f=f, pbounds={
+            'w_x': (200, 1000),
+            #'w_y': 980.0,
+            'w_hour': (1, 10),
+            'w_weekday': (1, 10),
+            'w_month': (1, 10),
+            'w_year': (2, 20),
+            'w_accuracy': (3, 30),
+            'kNN_k': (20, 41),
+            'four_hour_prob': (0, 0.3),
+            #'knn_prob': 1.,
+            'hour_prob': (0, 0.3),
+            'weekday_prob': (0.1, 0.6),
+            'nx': (10, 60),
+            'ny': (10, 60),
+            'threshold': (2, 11),
+        }, verbose=True
         )
-    bo.explore({
-        'w_x': (490.0,),
-        #'w_y': (980.0,),
-        'w_hour': (4.0,),
-        'w_weekday': (3.1,),
-        'w_month': (2.1,),
-        'w_year': (10.0,),
-        'w_accuracy': (10.0,),
-        'kNN_k': (36,),
+        bo.explore({
+            'w_x': (490.0,),
+            #'w_y': (980.0,),
+            'w_hour': (4.0,),
+            'w_weekday': (3.1,),
+            'w_month': (2.1,),
+            'w_year': (10.0,),
+            'w_accuracy': (10.0,),
+            'kNN_k': (36,),
 
-        'four_hour_prob': (0.1,),
-        #'knn_prob': (1.,),
-        'hour_prob': (0.1,),
-        'weekday_prob': (0.4,),
-        'nx': (20,),
-        'ny': (40,),
-        'threshold': (8,),
-       })
-    bo.maximize(init_points=3, n_iter=1, acq="ei", xi=0.1)
-    with open('knn_params/{}.json'.format(uuid_string), 'w') as fh:
-        fh.write(json.dumps(bo.res, sort_keys=True, indent=4))
-
-    for i in range(300):
-        bo.maximize(n_iter=3, acq="ei", xi=0.0) # exploration points
+            'four_hour_prob': (0.1,),
+            #'knn_prob': (1.,),
+            'hour_prob': (0.1,),
+            'weekday_prob': (0.4,),
+            'nx': (20,),
+            'ny': (40,),
+            'threshold': (8,),
+        })
+        bo.maximize(init_points=3, n_iter=1, acq="ei", xi=0.1)
         with open('knn_params/{}.json'.format(uuid_string), 'w') as fh:
             fh.write(json.dumps(bo.res, sort_keys=True, indent=4))
 
-        bo.maximize(n_iter=3, acq="ei", xi=0.1) # exploitation points
-        with open('knn_params/{}.json'.format(uuid_string), 'w') as fh:
-            fh.write(json.dumps(bo.res, sort_keys=True, indent=4))
+        for i in range(300):
+            bo.maximize(n_iter=3, acq="ei", xi=0.0)  # exploration points
+            with open('knn_params/{}.json'.format(uuid_string), 'w') as fh:
+                fh.write(json.dumps(bo.res, sort_keys=True, indent=4))
 
+            bo.maximize(n_iter=3, acq="ei", xi=0.1)  # exploitation points
+            with open('knn_params/{}.json'.format(uuid_string), 'w') as fh:
+                fh.write(json.dumps(bo.res, sort_keys=True, indent=4))
+    else:
 
+        cross_validation = 0
 
-
-
-
+        # output from bayesian optimization.
+        # See abhi_39453771-f123-443a-a3ad-5c119128e5c3_2016-07-03-13*log
+        d = {
+             'four_hour_prob': 0.0026,
+             'hour_prob': 0.1815,
+             'kNN_k': 39,
+             'nx': 57,
+             'ny': 17,
+             'threshold': 10,
+             'w_accuracy': 25.8868,
+             'w_hour': 2.7366,
+             'w_month': 5.5004,
+             'w_weekday': 1.6587,
+             'w_x': 632.6811,
+             'w_year': 16.9264,
+             'weekday_prob': 0.5824, }
+        get_vali_with_params(**d)

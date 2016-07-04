@@ -271,7 +271,7 @@ def main(w_acc=0.6, w_day_of_yr=0.32935, w_min=0.56515,
     # Global variables
     datapath = '../input/'
     # Change val_start_time to zero to generate predictions
-    val_start_time = 722032 # Day at which to cut validation
+    val_start_time = 0 # Day at which to cut validation
     #th = 5 # Threshold at which to cut places from train
     #fw = [0.6, 0.32935, 0.56515, 0.2670, 22, 52, 0.51785]
 
