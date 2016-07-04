@@ -51,34 +51,34 @@ import xgboost
 import pprint
 
 ENSEMBLE_MEMBERS = {
-    'ET': ('extratrees_vali_2016-06-26-20-34.csv',
-           'extratrees_test_2016-06-26-20-34.csv'),
-    'GB': ('gradient_boost_vali_2016-06-26-20-35.csv',
-           'gradient_boost_test_2016-06-26-20-35.csv'),
-    'NN1': ('knn_01_vali_2016-06-26-20-39.csv',
-            'knn_01_test_2016-06-26-20-39.csv'),
-    'NN5': ('knn_05_vali_2016-06-26-20-39.csv',
-            'knn_05_test_2016-06-26-20-39.csv'),
-    'NN9': ('knn_09_vali_2016-06-26-20-39.csv',
-            'knn_09_test_2016-06-26-20-39.csv'),
-    'NN25': ('knn_25_vali_2016-06-26-20-39.csv',
-             'knn_25_test_2016-06-26-20-39.csv'),
-    'NN37': ('knn_37_vali_2016-06-26-20-39.csv',
-             'knn_37_test_2016-06-26-20-39.csv'),
-    'NN51': ('knn_51_vali_2016-06-26-20-39.csv',
-             'knn_51_test_2016-06-26-20-39.csv'),
-    'NB': ('naive_bayes_vali_2016-06-26-22-03.csv',
-           'naive_bayes_test_2016-06-26-22-03.csv'),
-    'NXGB': ('naive_xgboost_vali_2016-06-26-20-34.csv',
-             'naive_xgboost_test_2016-06-26-20-34.csv'),
-    'RF': ('random_forest_vali_2016-06-26-20-34.csv',
-           'random_forest_test_2016-06-26-20-34.csv'),
-    'RBFSVM': ('rbf_svm_vali_2016-06-26-20-34.csv',
-               'rbf_svm_test_2016-06-26-20-34.csv'),
+    # 'ET': ('extratrees_vali_2016-06-26-20-34.csv',
+    #        'extratrees_test_2016-06-26-20-34.csv'),
+    # 'GB': ('gradient_boost_vali_2016-06-26-20-35.csv',
+    #        'gradient_boost_test_2016-06-26-20-35.csv'),
+    # 'NN1': ('knn_01_vali_2016-06-26-20-39.csv',
+    #         'knn_01_test_2016-06-26-20-39.csv'),
+    # 'NN5': ('knn_05_vali_2016-06-26-20-39.csv',
+    #         'knn_05_test_2016-06-26-20-39.csv'),
+    # 'NN9': ('knn_09_vali_2016-06-26-20-39.csv',
+    #         'knn_09_test_2016-06-26-20-39.csv'),
+    # 'NN25': ('knn_25_vali_2016-06-26-20-39.csv',
+    #          'knn_25_test_2016-06-26-20-39.csv'),
+    # 'NN37': ('knn_37_vali_2016-06-26-20-39.csv',
+    #          'knn_37_test_2016-06-26-20-39.csv'),
+    # 'NN51': ('knn_51_vali_2016-06-26-20-39.csv',
+    #          'knn_51_test_2016-06-26-20-39.csv'),
+    # 'NB': ('naive_bayes_vali_2016-06-26-22-03.csv',
+    #        'naive_bayes_test_2016-06-26-22-03.csv'),
+    # 'NXGB': ('naive_xgboost_vali_2016-06-26-20-34.csv',
+    #          'naive_xgboost_test_2016-06-26-20-34.csv'),
+    # 'RF': ('random_forest_vali_2016-06-26-20-34.csv',
+    #        'random_forest_test_2016-06-26-20-34.csv'),
+    # 'RBFSVM': ('rbf_svm_vali_2016-06-26-20-34.csv',
+    #            'rbf_svm_test_2016-06-26-20-34.csv'),
 
     # these runs are with XGBoost with NN features
-    'XGNN0': ('run0_vali.csv',
-              'run0_test.csv'),
+    # 'XGNN0': ('run0_vali.csv',
+    #           'run0_test.csv'),
     'XGNN1': ('run1_vali.csv',
               'run1_test.csv'),
     'XGNN2': ('run2_vali.csv',
@@ -107,7 +107,7 @@ y_step = size/float(NY)
 x_cell_margin = x_step*0.1
 y_cell_margin = y_step*0.1
 
-RUN_NAME = 'comb0'
+RUN_NAME = 'comb3'
 
 
 def map_k_precision(truthvalues, predictions):
@@ -168,6 +168,7 @@ def load_ensemble(validation):
                 newcols.append(x)
             else:
                 newcols.append('{}_{}'.format(k, x))
+                d[k][x] = d[k][x].astype(str)
         d[k].columns = newcols
     return d
 
@@ -232,12 +233,27 @@ def main():
         Y_valifold = inbin.place_id.values
         test_rowids = inbin_test.row_id.values
 
-        inbin.drop(['place_id', 'row_id', 'month', 'year'], axis=1, inplace=True)
-        inbin_test.drop(['row_id','month', 'year'], axis=1, inplace=True)
+        inbin.drop(['place_id', 'row_id',], axis=1, inplace=True)
+        inbin_test.drop(['row_id',], axis=1, inplace=True)
 
-        assert(np.all(inbin.columns == inbin_test.columns))
+        print(inbin)
+        print(inbin_test)
+
+        N_vali = inbin.shape[0]
+        inbin = pd.concat((inbin, inbin_test), axis=1)
+        inbin = pd.get_dummies(inbin)
+        print(inbin)
+        print(inbin_test)
+        sys.exit(9)
+
+        inbin_test = inbin.iloc[N_vali:,:]
+        inbin = inbin.iloc[:N_vali, :]
+
+        # assert(np.all(inbin.columns == inbin_test.columns))
         X = inbin.values
         X_test = inbin_test.values
+
+
 
         clf = xgboost.XGBClassifier(**xgb_params)
         clf.fit(X, Y_valifold)

@@ -261,11 +261,11 @@ if __name__ == '__main__':
         outfilename = sub_file = os.path.join(
             'vali_{0}.csv'.format(str(now_time)))
 
-        n_neighbors = int(os.environ['NEIGH'])
+        # n_neighbors = int(os.environ['NEIGH'])
 
 
         f = functools.partial(process_grid, df_train=df_train, df_test=df_test,
-                              outfilename=outfilename, n_neighbors=n_neighbors)
+                              outfilename=outfilename)
         bo = BayesianOptimization(f=f,
                                   pbounds={
                                       'th': (0, 4.1),
@@ -275,8 +275,8 @@ if __name__ == '__main__':
                                       "w_log10acc": (3, 30),
                                       "w_weekday": (1, 10),
                                       "w_month": (1, 10),
-                                      "w_year": (2, 20)},
-                                      # "n_neighbors": (1, 30)},
+                                      "w_year": (2, 20),
+                                      "n_neighbors": (1, 30)},
                                   verbose=True
                                   )
 
