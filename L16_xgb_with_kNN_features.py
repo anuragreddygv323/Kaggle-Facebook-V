@@ -28,7 +28,7 @@ import xgboost
 #
 # check knn_bayes_4.log
 knn_opt_params_0 = {
-    'th': 2, 
+    'th': 3.1, # modified from 0.3993
     'w_x': 560.4030,
     'w_y': 1000.,
     'w_hour': 2.7613,
@@ -115,16 +115,16 @@ xgboost_params_4 = {
 
 # Set important parameters of the script.
 size = 10.
-NX = 100
-NY = 100
+NX = 50
+NY = 50
 x_step = size/float(NX)
 y_step = size/float(NY)
-x_cell_margin = x_step*0.1
-y_cell_margin = y_step*0.1
+x_cell_margin = x_step*0.2
+y_cell_margin = y_step*0.2
 
-XGB_PARAMS_USE = xgboost_params_1
+XGB_PARAMS_USE = xgboost_params_0
 KNN_PARAMS_USE = knn_opt_params_0
-RUN_NAME = 'run6'
+RUN_NAME = 'run5'
 
 
 def load_data():
