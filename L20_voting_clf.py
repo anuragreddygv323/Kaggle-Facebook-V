@@ -35,6 +35,7 @@ ENSEMBLE_MEMBERS = {
     'XGNN1': 'run1_test.csv',
     'XGNN2': 'run2_test.csv',
     'XGNN3': 'run3_test.csv',
+    'XGNN4': 'run4_test.csv',
 }
 
 

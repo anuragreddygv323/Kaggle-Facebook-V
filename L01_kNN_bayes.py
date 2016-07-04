@@ -25,7 +25,7 @@ import json
 
 size = 10.
 x_step = 1.0
-y_step = 0.5
+y_step = 1.0
 x_border_augment = x_step * 0.2
 y_border_augment = y_step * 0.2
 
@@ -149,15 +149,59 @@ def process_grid(df_train, df_test, outfilename,
                  # n_neighbors=25
 
                  # OPTIMIZED (Run A3 in notebook)
-                 th=5.4848,
-                 w_x=487.2522,
-                 w_y=1001.9209,
-                 w_hour=3.6170,
-                 w_log10acc=14.3511,
-                 w_weekday=3.1571,
-                 w_month=2,
-                 w_year=8.8743,
-                 n_neighbors=29
+                 # th=5.4848,
+                 # w_x=487.2522,
+                 # w_y=1001.9209,
+                 # w_hour=3.6170,
+                 # w_log10acc=14.3511,
+                 # w_weekday=3.1571,
+                 # w_month=2,
+                 # w_year=8.8743,
+                 # n_neighbors=29
+
+                 # OPTIMIZED (Run A5 in notebook)
+                 # th=6.7352,
+                 # w_x=472.9779,
+                 # w_y=896.1224,
+                 # w_hour=3.5995,
+                 # w_log10acc=18.4334,
+                 # w_weekday=3.5791,
+                 # w_month=2,
+                 # w_year=7.6772,
+                 # n_neighbors=31
+
+                 # OPTIMIZED (Run A7 in notebook)
+                 th=1.4639,
+                 w_x=655.4717,
+                 w_y=1000.00,
+                 w_hour=6.1265,
+                 w_log10acc=26.3359,
+                 w_weekday=5.6402,
+                 w_month=4.2141,
+                 w_year=9.1151,
+                 n_neighbors=19
+
+                 # OPTIMIZED (Run A8 in notebook)
+                 # th=0.3993,
+                 # w_x=560.4030,
+                 # w_y=1000.00,
+                 # w_hour=2.7613,
+                 # w_log10acc=23.6475,
+                 # w_weekday=2.3018,
+                 # w_month=5.2547,
+                 # w_year=10.6362,
+                 # n_neighbors=16
+
+                 # OPTIMIZED (Run A9 in notebook)
+                 # th=3.0313,
+                 # w_x=538.8175,
+                 # w_y=1000.00,
+                 # w_hour=6.4821,
+                 # w_log10acc=10.7146,
+                 # w_weekday=3.9611,
+                 # w_month=5.6011,
+                 # w_year=11.3404,
+                 # n_neighbors=24
                  ):
     """
     Iterates over all grid cells, aggregates the results and makes the

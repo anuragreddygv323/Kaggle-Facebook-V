@@ -186,7 +186,7 @@ else:
 for g_id in repeats:
     if g_id % 100 == 0:
         print('iter: %s' %(g_id))
-        print (time.time()-t)/60
+        print((time.time()-t)/60.)
     
     #Applying classifier to one grid cell
     xmin, xmax, ymin, ymax =grid[g_id]   
