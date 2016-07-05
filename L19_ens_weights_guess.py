@@ -6,6 +6,8 @@ import numpy as np
 
 def agreement(filename1, filename2):
     'Calculate the agreement matrix, return the trace, and the sum of the offdiagonals'
+    print("Reading files with pandas.")
+
     df1 = pd.read_csv(filename1)
     df2 = pd.read_csv(filename2)
 
@@ -18,6 +20,7 @@ def agreement(filename1, filename2):
         p2 = []
         p3 = []
 
+        print("Manually parsing {}".format(filename1))
         fh = open(filename1, 'r')
         for l in fh.readlines()[1:]:
             row_id, place_id = l.split(',')
@@ -44,6 +47,7 @@ def agreement(filename1, filename2):
         p2 = []
         p3 = []
 
+        print("Manually parsing {}".format(filename2))
         fh = open(filename2, 'r')
         for l in fh.readlines()[1:]:
             row_id, place_id = l.split(',')
@@ -60,12 +64,14 @@ def agreement(filename1, filename2):
     df1.sort_values('row_id', inplace=True)
     df2.sort_values('row_id', inplace=True)
 
+    print("merging dataframes")
     merged = pd.merge(df1, df2, on='row_id', suffixes=['_1', '_2'])
 
     N = merged.shape[0]
 
     mat = np.array(np.zeros((3, 3), dtype=np.float64))
 
+    print("constructing matrix")
     for i in range(3):
         for j in range(3):
             # print((i, j, 'pred{}_1'.format(i+1), 'pred{}_2'.format(j+1)))
@@ -74,8 +80,10 @@ def agreement(filename1, filename2):
                 == merged['pred{}_2'.format(j+1)].values)) / N
 
     mat = np.round(mat, 5)
+    print(mat)
     trace = np.trace(mat)
     offdiag = np.sum(mat) - trace
+    print("Trace: {0:.4f}    Offdiag: {1:.4f}".format(trace, offdiag))
     return trace, offdiag
 
 
@@ -138,6 +146,7 @@ def main():
 
     for x in runs:
         for y in runs:
+            print((x, y))
             if x == y:
                 continue
             if '{}_{}'.format(x, y) in d:
