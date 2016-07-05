@@ -57,7 +57,7 @@ y_cell_margin = y_step*0.2
 
 PARAMS_USE = _params_0
 KNN_PARAMS_USE = knn_opt_params_0
-RUN_NAME = 'run10'
+RUN_NAME = 'run12'
 
 
 def load_data():
@@ -285,8 +285,8 @@ def predict(train, test, _params={}, map_at_k_K=3):
     else:
         x_test = test.values
 
-    clf = sklearn.ensemble.ExtraTreesClassifier(
-        n_estimators=200, n_jobs=-1,
+    clf = sklearn.ensemble.RandomForestClassifier(
+        n_estimators=100, n_jobs=-1,
                                 **par)
     clf.fit(x_train, y_train)
     predict_y_test = clf.predict_proba(x_test)
