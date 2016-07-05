@@ -15,7 +15,8 @@ import multiprocessing
 import sklearn.preprocessing
 
 # This block gives accuracy ratings. In hindsight, the XGBoost seems to
-# perform better or the same without kNN features.
+# perform better or the same without kNN features. However, the trees might
+# become more decorrelated with the kNN features, maybe?
 
 # for x in *vali*csv ; do echo $x ; python agreement_matrix.py ../input/train.csv $x |grep Horiz ; done
 # extratrees_vali_2016-06-26-20-34.csv
@@ -105,7 +106,8 @@ ENSEMBLE_MEMBERS = [
     ('XGNN9', 'run11_test.csv', 0.564363, 1.632, 0.677, 1.329, 0.686),
 
     ('ETNN1', 'run10_test.csv', 0.549796, 1.424, 0.706, 1.387, 0.688),
-    ('RFNN1', 'run12_test.csv', 0.549942, 1.408, 0.675, 1.289, 0.691), ]
+    ('RFNN1', 'run12_test.csv', 0.549942, 1.408, 0.675, 1.289, 0.691), 
+    ]
 
 ENSEMBLE_MEMBERS = pd.DataFrame(ENSEMBLE_MEMBERS, columns=[
     'key',
@@ -156,6 +158,7 @@ def load_ensemble():
                 d[k]['weight'] = ENSEMBLE_MEMBERS.ix[k].map3
         d[k].sort_values('row_id', inplace=True)
         print(d[k].head())
+        print('\n')
 
     return d
 
@@ -177,9 +180,30 @@ def top_3_preds(weights, pred_place_ids_block):
     return unique_place_ids[idx]
 
 
-ens = load_ensemble()
-df = pd.concat(ens.values())
-del ens
+if not os.path.isfile('ens.h5'):
+    print("WARNING: This script requires a LOT of memory, something around 2GB "
+          "per ensemble member. As configured, around 45 GB was used to put "
+          "the ensemble dataframe together. 60GB Amazon EC2 node suggested.")
+    print("Loading ensemble")
+    ens = load_ensemble()
+    print("Ensemble loaded. Concatenating")
+    df = pd.concat(ens.values())
+    print("Concatenated, deleting stale data")
+    del ens
+    print("Stale data deleted, saving a copy to disk")
+    df.to_hdf('ens.h5', 'table', complevel=1, complib='blosc', fletcher32=True)
+    print(df)
+else:
+    print("WARNING: This script requires a LOT of memory, around 1.5GB per "
+          "ensemble member. As configured, it **barely** completed with 32GB, "
+          "60GB Amazon EC2 node suggested.")
+    print("Reading ens.h5 from disk with previous options. If you don't "
+          "want this, delete ens.h5, "
+          "and it will be recreated with current options")
+    df = pd.read_hdf('ens.h5', 'table')
+    print(df)
+
+print("Starting groupby and write.")
 
 fh = open('comb_all_with_global_map3.csv', 'w')
 fh.write('row_id,place_id\n')
@@ -188,7 +212,7 @@ dt = datetime.datetime.now()
 
 for row_id, d in df.groupby(['row_id']):
     z = d.drop('row_id', axis=1)
-    weights = z.weights.values
+    weights = z.weight.values
     z.drop('weight', inplace=True, axis=1)
     p = top_3_preds(weights, z.values)
     fh.write('{},{} {} {}\n'.format(row_id, p[0], p[1], p[2]))
@@ -198,5 +222,5 @@ for row_id, d in df.groupby(['row_id']):
         print(mm - dt)
         dt = mm
         print(row_id)
-
+print("All done")
 
