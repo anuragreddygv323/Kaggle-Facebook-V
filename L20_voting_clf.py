@@ -1,5 +1,7 @@
-
+#!/usr/bin/env python3
 # coding: utf-8
+
+# Author Ravi Shekhar
 
 import pandas as pd
 import numpy as np
@@ -16,7 +18,8 @@ import sklearn.preprocessing
 
 # This block gives accuracy ratings. In hindsight, the XGBoost seems to
 # perform better or the same without kNN features. However, the trees might
-# become more decorrelated with the kNN features, maybe?
+# become more decorrelated with the kNN features, which would improve the 
+# ensemble.
 
 # for x in *vali*csv ; do echo $x ; python agreement_matrix.py ../input/train.csv $x |grep Horiz ; done
 # extratrees_vali_2016-06-26-20-34.csv
@@ -68,57 +71,80 @@ import sklearn.preprocessing
 # run9_vali.csv
 # Horiz Sum: [0.48451, 0.12318, 0.05803]
 
+
+# These are the predictions to ensemble together. Less correlation will improve
+# the ensemble more so we derive weights. The agreement_offdiag and
+# agreement_trace are derived from L19_ens_weights_guess.py, with ExtraTrees ET1
+# and ET2 part of the ensemble, which have since been dropped for very low MAP3.
+# The agreement matrices were tested and explained in agreement_matrix.py.
+
+# When classifiers are highly correlated, the agreement trace is large
+# When classifiers are more independent, but reshufflings of the same 
+# categories, the offdiagonals are large. 
 ENSEMBLE_MEMBERS = [
     # ----- This block of classifiers is in submission format,
     # that is a space separated list of place_ids
 
-    ('ABHI', 'abhi.csv', 0.56951, 1.432, 0.694, 3., 0.),
-    ('HARTMANN', 'hartmann.csv', 0.55282, 1.402, 0.693, 1.749, 0.584),
+    ('ABHI', 'abhi.csv', 0.56951, 0.675420, 1.414158),
+    ('HARTMANN', 'hartmann.csv', 0.55282, 0.669720, 1.385110),
 
-    ('NN16', 'knn_16_run_A8_pred.csv', 0.545708, 1.290, 0.668, 1.377, 0.659),
-    ('NN19', 'knn_19_run_A7_pred.csv', 0.546601, 1.333, 0.663, 1.651, 0.587),
-    ('NN24', 'knn_24_run_A9_pred.csv', 0.546892, 1.336, 0.696, 1.692, 0.608),
-    ('NN29', 'knn_29_run_A3_pred.csv', 0.548435, 1.487, 0.685, 1.834, 0.570),
-    ('NN31', 'knn_31_run_A5_pred.csv', 0.548821, 1.477, 0.690, 1.843, 0.564),
+    ('NN16', 'knn_16_run_A8_pred.csv', 0.545708, 0.647591, 1.315414),
+    ('NN19', 'knn_19_run_A7_pred.csv', 0.546601, 0.639670, 1.369810),
+    ('NN24', 'knn_24_run_A9_pred.csv', 0.546892, 0.666214, 1.349287),
+    ('NN29', 'knn_29_run_A3_pred.csv', 0.548435, 0.653935, 1.467409),
+    ('NN31', 'knn_31_run_A5_pred.csv', 0.548821, 0.655597, 1.474633),
 
     # --------- This block of classifiers has cell-wise map3 as a column -----
 
-    ('ET1', 'extratrees_test_2016-06-26-20-34.csv', 0.529532, 1.157, 0.730, 1.179, 0.705),
-    ('ET2', 'extratrees_test_2016-07-04-15-39.csv', 0.525208, 1.128, 0.732, 1.152, 0.709),
+    # ('ET1', 'extratrees_test_2016-06-26-20-34.csv', 0.529532, 0.702906, 1.185185),
+    # ('ET2', 'extratrees_test_2016-07-04-15-39.csv', 0.525208, 0.706655, 1.160033),
 
-    ('NXGB1', 'naive_xgboost_test_2016-06-26-20-34.csv', 0.5676, 1.536, 0.702, 1.285, 0.702),
-    ('NXGB2', 'naive_xgboost_test_2016-07-04-15-14.csv', 0.5665, 1.513, 0.710, 1.273, 0.712),
-    ('NXGB3', 'run9_test.csv', 0.565445, 1.578, 0.694, 1.373, 0.694),
+    ('NXGB1', 'naive_xgboost_test_2016-06-26-20-34.csv', 0.5676, 0.691904, 1.376551),
+    ('NXGB2', 'naive_xgboost_test_2016-07-04-15-14.csv', 0.5665, 0.697120, 1.367123),
+    ('NXGB3', 'run9_test.csv', 0.565445, 0.681825, 1.425372),
 
-    ('RF1', 'random_forest_test_2016-06-26-20-34.csv', 0.550621, 1.333, 0.691, 1.276, 0.692),
-    ('RF2', 'random_forest_test_2016-07-04-15-46.csv', 0.551428, 1.345, 0.693, 1.281, 0.695),
+    ('RF1', 'random_forest_test_2016-06-26-20-34.csv', 0.550621, 0.678264, 1.319189),
+    ('RF2', 'random_forest_test_2016-07-04-15-46.csv', 0.551428, 0.680115, 1.327029),
 
     # these runs are with XGBoost with NN features
-    ('XGNN0', 'run0_test.csv', 0.555004, 1.616, 0.694, 1.273, 0.727),
-    ('XGNN1', 'run1_test.csv', 0.559433, 3, 0., 1.432, 0.694),
-    ('XGNN2', 'run2_test.csv', 0.563182, 1.914, 0.593, 1.422, 0.703),
-    ('XGNN3', 'run3_test.csv', 0.564233, 1.866, 0.600, 1.490, 0.682),
-    ('XGNN4', 'run4_test.csv', 0.566821, 1.821, 0.605, 1.479, 0.693),
-    ('XGNN5', 'run5_test.csv', 0.554711, 1.405, 0.740, 1.213, 0.729),
-    ('XGNN6', 'run6_test.csv', 0.559900, 1.637, 0.699, 1.339, 0.712),
-    ('XGNN7', 'run7_test.csv', 0.564275, 1.597, 0.695, 1.344, 0.707),
-    ('XGNN8', 'run8_test.csv', 0.562885, 1.685, 0.673, 1.393, 0.692),
-    ('XGNN9', 'run11_test.csv', 0.564363, 1.632, 0.677, 1.329, 0.686),
+    ('XGNN0', 'run0_test.csv', 0.555004, 0.704860, 1.342139),
+    ('XGNN1', 'run1_test.csv', 0.559433, 0.683740, 1.478337),
+    ('XGNN2', 'run2_test.csv', 0.563182, 0.674729, 1.490334),
+    ('XGNN3', 'run3_test.csv', 0.564233, 0.669054, 1.511995),
+    ('XGNN4', 'run4_test.csv', 0.566821, 0.666355, 1.502586),
+    ('XGNN5', 'run5_test.csv', 0.554711, 0.710070, 1.327578),
+    ('XGNN6', 'run6_test.csv', 0.559900, 0.687056, 1.467433),
+    ('XGNN7', 'run7_test.csv', 0.564275, 0.673021, 1.486621),
+    ('XGNN8', 'run8_test.csv', 0.562885, 0.662386, 1.521970),
+    ('XGNN9', 'run11_test.csv', 0.564363, 0.658710, 1.508172),
 
-    ('ETNN1', 'run10_test.csv', 0.549796, 1.424, 0.706, 1.387, 0.688),
-    ('RFNN1', 'run12_test.csv', 0.549942, 1.408, 0.675, 1.289, 0.691), 
+    ('ETNN1', 'run10_test.csv', 0.549796, 0.672748, 1.401481),
+    ('RFNN1', 'run12_test.csv', 0.549942, 0.661569, 1.345943),
     ]
 
 ENSEMBLE_MEMBERS = pd.DataFrame(ENSEMBLE_MEMBERS, columns=[
     'key',
     'file',
     'map3',
-    'run1_agreement_trace',
-    'run1_agreement_offdiag',
-    'abhi_agreement_trace',
-    'abhi_agreement_offdiag'])
+    'agreement_offdiag',
+    'agreement_trace'])
 ENSEMBLE_MEMBERS.set_index('key', inplace=True)
 
+# Some educated guesses on what weights might be helpful.
+# We want strong positive correlation with map3
+#                positive correlation with agreement_offdiag
+#                inverse correlation with agreement_trace
+ENSEMBLE_MEMBERS['weight0'] = ENSEMBLE_MEMBERS.map3
+ENSEMBLE_MEMBERS['weight1'] = ENSEMBLE_MEMBERS.map3**4. * (ENSEMBLE_MEMBERS.agreement_offdiag)**2 / (ENSEMBLE_MEMBERS.agreement_trace**2.)
+ENSEMBLE_MEMBERS['weight2'] = ENSEMBLE_MEMBERS.map3**8. * (ENSEMBLE_MEMBERS.agreement_offdiag)**2 / (ENSEMBLE_MEMBERS.agreement_trace**2.)
+ENSEMBLE_MEMBERS['weight3'] = ENSEMBLE_MEMBERS.map3**4. * (ENSEMBLE_MEMBERS.agreement_offdiag)**4 / (ENSEMBLE_MEMBERS.agreement_trace**4.)
+ENSEMBLE_MEMBERS['weight4'] = ENSEMBLE_MEMBERS.map3**8. * (ENSEMBLE_MEMBERS.agreement_offdiag)**4 / (ENSEMBLE_MEMBERS.agreement_trace**4.)
+
+ENSEMBLE_MEMBERS['weight0'] /= np.min(ENSEMBLE_MEMBERS.weight0.values)
+ENSEMBLE_MEMBERS['weight1'] /= np.min(ENSEMBLE_MEMBERS.weight1.values)
+ENSEMBLE_MEMBERS['weight2'] /= np.min(ENSEMBLE_MEMBERS.weight2.values)
+ENSEMBLE_MEMBERS['weight3'] /= np.min(ENSEMBLE_MEMBERS.weight3.values)
+ENSEMBLE_MEMBERS['weight4'] /= np.min(ENSEMBLE_MEMBERS.weight4.values)
 
 ens = {}
 df = None
@@ -151,11 +177,13 @@ def load_ensemble():
                                      'pred1': p1,
                                      'pred2': p2,
                                      'pred3': p3})
-                d[k]['weight'] = ENSEMBLE_MEMBERS.ix[k].map3
+                # MODIFY this line to use the appropriate weight formula
+                d[k]['weight'] = ENSEMBLE_MEMBERS.ix[k].weight3
             else:
                 d[k] = pd.read_csv(filename)
                 d[k] = d[k]['row_id pred1 pred2 pred3'.split()]
-                d[k]['weight'] = ENSEMBLE_MEMBERS.ix[k].map3
+                # MODIFY this line to use the appropriate weight formula
+                d[k]['weight'] = ENSEMBLE_MEMBERS.ix[k].weight3
         d[k].sort_values('row_id', inplace=True)
         print(d[k].head())
         print('\n')
@@ -191,7 +219,7 @@ if not os.path.isfile('ens.h5'):
     print("Concatenated, deleting stale data")
     del ens
     print("Stale data deleted, saving a copy to disk")
-    df.to_hdf('ens.h5', 'table', complevel=1, complib='blosc', fletcher32=True)
+    # df.to_hdf('ens.h5', 'table', complevel=1, complib='blosc', fletcher32=True)
     print(df)
 else:
     print("WARNING: This script requires a LOT of memory, around 1.5GB per "
@@ -205,7 +233,7 @@ else:
 
 print("Starting groupby and write.")
 
-fh = open('comb_all_with_global_map3.csv', 'w')
+fh = open('comb_all_with_global_weight3.csv', 'w')
 fh.write('row_id,place_id\n')
 
 dt = datetime.datetime.now()

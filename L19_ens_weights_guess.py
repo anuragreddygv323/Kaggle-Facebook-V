@@ -102,8 +102,8 @@ ENSEMBLE_MEMBERS = [
 
     # --------- This block of classifiers has cell-wise map3 as a column -----
 
-    ('ET1', 'extratrees_test_2016-06-26-20-34.csv', 0.529532),
-    ('ET2', 'extratrees_test_2016-07-04-15-39.csv', 0.525208),
+    # ('ET1', 'extratrees_test_2016-06-26-20-34.csv', 0.529532),
+    # ('ET2', 'extratrees_test_2016-07-04-15-39.csv', 0.525208),
 
     ('NXGB1', 'naive_xgboost_test_2016-06-26-20-34.csv', 0.5676),
     ('NXGB2', 'naive_xgboost_test_2016-07-04-15-14.csv', 0.5665),
