@@ -16,6 +16,7 @@ import copy
 import functools
 import tqdm
 import sklearn.preprocessing
+import multiprocessing
 
 # This block gives accuracy ratings. In hindsight, the XGBoost seems to
 # perform better or the same without kNN features. However, the trees might
@@ -170,6 +171,7 @@ def load_ensemble():
 
     return d
 
+
 def map_k_precision(truthvalues, predictions):
     '''
     This is a faster implementation of MAP@k valid for numpy arrays.
@@ -208,7 +210,7 @@ def val_err(data, traindata, **kwargs):
     # print(kwargs)
     # print(data.head())
 
-    #reweight data frame
+    # reweight data frame
     data['weight'] = np.array([kwargs[k] for k in data.clf.values])
     # print(data.head())
 
@@ -216,30 +218,27 @@ def val_err(data, traindata, **kwargs):
     predlist = []
 
     # this is essentially a manual groupby operation. In my tests, using the
-    # pandas groupby seems to make an unnecessary copy of the data, which in 
-    # my case, exceeds 16GB memory and causes swapping. This ends up being 
+    # pandas groupby seems to make an unnecessary copy of the data, which in
+    # my case, exceeds 16GB memory and causes swapping. This ends up being
     # much faster.
     data.sort_values('row_id', inplace=True)
     row_id_values = data.row_id.values
     unique_row_ids = np.sort(np.unique(row_id_values))
-    # unique_row_ids = np.array_split(unique_row_ids, 10)[0]
     row_indices = np.searchsorted(row_id_values, unique_row_ids)
-
 
     for i in tqdm.tqdm(range(unique_row_ids.shape[0])):
         row_id = unique_row_ids[i]
         truthlist.append(traindata.ix[row_id].place_id)
-        
+
         if i == unique_row_ids.shape[0] - 1:
             z = data.iloc[row_indices[i]:]
         else:
             z = data.iloc[row_indices[i]:row_indices[i+1]]
-            
+
         weights = z.weight.values
-        z = z.drop(['row_id', 'clf', 'weight'], axis=1)        
+        z = z.drop(['row_id', 'clf', 'weight'], axis=1)
         p = top_3_preds(weights, z.values)
         predlist.append(p)
-
 
     truthlist = np.array(truthlist)
     predlist = np.array(predlist)
@@ -262,35 +261,61 @@ def main():
     f = functools.partial(val_err, data=df, traindata=traindata)
 
     bo = bayes_opt.BayesianOptimization(f=f, verbose=True,
-        pbounds={
-        'NN16' : (1., 30.),
-        'NN19' : (1., 30.),
-        'NN24' : (1., 30.),
-        'NN29' : (1., 30.),
-        'NN31' : (1., 30.),
-        'ET1' : (1., 30.),
-        'ET2' : (1., 30.),
-        'NXGB1' : (1., 30.),
-        'NXGB2' : (1., 30.),
-        'NXGB3' : (1., 30.),
-        'RF1' : (1., 30.),
-        'RF2' : (1., 30.),
-        'XGNN0' : (1., 30.),
-        'XGNN1' : (1., 30.),
-        'XGNN2' : (1., 30.),
-        'XGNN3' : (1., 30.),
-        'XGNN4' : (1., 30.),
-        'XGNN5' : (1., 30.),
-        'XGNN6' : (1., 30.),
-        'XGNN7' : (1., 30.),
-        'XGNN8' : (1., 30.),
-        'XGNN9' : (1., 30.),
-        'ETNN1' : (1., 30.),
-        'RFNN1' : (1., 30.),
-        })
+                                        pbounds={
+                                            'NN16': (1., 30.),
+                                            'NN19': (1., 30.),
+                                            'NN24': (1., 30.),
+                                            'NN29': (1., 30.),
+                                            'NN31': (1., 30.),
+                                            'ET1': (1., 30.),
+                                            'ET2': (1., 30.),
+                                            'NXGB1': (1., 30.),
+                                            'NXGB2': (1., 30.),
+                                            'NXGB3': (1., 30.),
+                                            'RF1': (1., 30.),
+                                            'RF2': (1., 30.),
+                                            'XGNN0': (1., 30.),
+                                            'XGNN1': (1., 30.),
+                                            'XGNN2': (1., 30.),
+                                            'XGNN3': (1., 30.),
+                                            'XGNN4': (1., 30.),
+                                            'XGNN5': (1., 30.),
+                                            'XGNN6': (1., 30.),
+                                            'XGNN7': (1., 30.),
+                                            'XGNN8': (1., 30.),
+                                            'XGNN9': (1., 30.),
+                                            'ETNN1': (1., 30.),
+                                            'RFNN1': (1., 30.),
+                                        })
+
+    bo.explore({
+        'NN16': (11.3560, 2.4614),
+        'NN19': (15.5824, 5.3674),
+        'NN24': (2.0212, 7.0457),
+        'NN29': (12.4096, 3.8345),
+        'NN31': (1.2689, 13.7850),
+        'ET1': (4.4007, 18.8751),
+        'ET2': (3.8069, 6.6030),
+        'NXGB1': (17.2929, 11.1042),
+        'NXGB2': (26.3967, 16.7655),
+        'NXGB3': (23.2920, 14.5272),
+        'RF1': (12.2257, 28.5895),
+        'RF2': (23.6920, 19.8300),
+        'XGNN0': (25.9015, 17.7590),
+        'XGNN1': (4.6944, 18.5898),
+        'XGNN2': (17.6990, 13.3860),
+        'XGNN3': (8.9944, 27.5454),
+        'XGNN4': (13.6752, 29.6615),
+        'XGNN5': (26.2349, 26.4529),
+        'XGNN6': (3.1965, 28.3172),
+        'XGNN7': (25.0879, 4.8585),
+        'XGNN8': (9.7461, 9.6668),
+        'XGNN9': (14.2613, 26.3092),
+        'ETNN1': (2.2077, 14.6846),
+        'RFNN1': (22.381, 12.3591),
+    })
+
     bo.maximize(n_iter=2000)
-
-
 
     pass
 
